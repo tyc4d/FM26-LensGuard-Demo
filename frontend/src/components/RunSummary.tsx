@@ -1,6 +1,11 @@
 import type { RunState, Scenario } from '../types';
 
 export function presentRun(run: RunState | null, active: boolean) {
+  if (run?.status === 'failed' && ['model_schema_invalid', 'action_mapping_failed', 'model_output_parse_failed'].includes(run.error_code || '')) return {
+    tone: 'interrupted', status: 'INVALID MODEL OUTPUT', headline: '模型已完成，行動格式不完整',
+    subtitle: 'Inference completed. The output could not be authorized or executed.',
+    reason: run.error || 'Action validation failed.',
+  };
   if (run?.status === 'failed') return {
     tone: 'interrupted', status: 'INTERRUPTED', headline: run.error?.includes('could not be parsed') ? 'Model output could not be parsed.' : 'Analysis interrupted.',
     subtitle: 'Reset and run the scenario again.', reason: run.error || 'The runtime could not finish this analysis.',
@@ -57,7 +62,7 @@ export function RunSummary({ run, scenario, active }: { run: RunState | null; sc
   const actionText = action ? `${action.tool}(${Object.values(action.arguments).map((value) => value.value).join(', ')})` : null;
   return <aside className={`run-summary result-${view.tone}`} aria-label="Action summary">
     <div className="stage-request"><p className="eyebrow">User request</p><p className="user-request" lang="zh-Hant">{scenario?.user_request || 'Loading scenario…'}</p></div>
-    <div className="summary-action"><p className="eyebrow">Proposed action</p><p className={`action-expression ${action ? '' : 'awaiting-action'}`}>{actionText || 'Awaiting analysis.'}</p></div>
+    <div className="summary-action"><p className="eyebrow">Proposed action</p><p className={`action-expression ${action ? '' : 'awaiting-action'}`}>{actionText || (run?.status === 'failed' ? 'No valid action.' : 'Awaiting analysis.')}</p></div>
     <div className="summary-decision" data-testid="decision-result" aria-live="polite">
       <p className="eyebrow">{active ? 'In progress' : 'Result'}</p>
       <p className="result-label">{view.status}</p>

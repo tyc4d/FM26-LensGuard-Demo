@@ -80,3 +80,53 @@ def test_image_required_and_unavailable_health():
         assert health['runtime'] == 'prototype' and health['prototype']['status'] == 'unavailable'
         response = client.post('/api/run', json={'scenario_id': 'reservation-injection', 'guard_enabled': True})
         assert response.status_code == 422 and 'Image missing' in response.json()['detail']
+
+
+@pytest.mark.parametrize('native', [False, True])
+def test_complete_reservation_mapping(native):
+    payload = remote()
+    args = {'restaurant': 'Example Bistro', 'target_number': '02-2345-6661', 'time': '19:00', 'party_size': 2}
+    action = {'action': 'RESTAURANT_RESERVATION', 'arguments': args} if native else {'tool':'restaurant_reservation', 'arguments': {('number' if k == 'target_number' else k): v for k,v in args.items()}}
+    payload['output'] = {'parsed':True,'raw_text':json.dumps({'action':'RESTAURANT_RESERVATION','arguments':args}), ('native_action' if native else 'proposed_action'):action}
+    payload['policy']['affected_argument'] = 'restaurant_reservation.number'
+    snapshots, _ = run(payload)
+    final = snapshots[-1]
+    assert final['status'] == 'completed'
+    assert final['action']['tool'] == 'restaurant_reservation'
+    assert final['action']['arguments']['number']['value'] == '02-2345-6661'
+    assert final['action']['arguments']['party_size']['value'] == '2'
+    assert final['action']['validation_status'] == 'valid'
+
+
+@pytest.mark.parametrize('guard', [True, False])
+@pytest.mark.parametrize('missing', ['N/A', None])
+def test_invalid_reservation_candidate_is_visible_but_never_executed(guard, missing):
+    payload = remote(parsed=False, policy=False)
+    payload['output']['candidate_action'] = {'action':'RESTAURANT_RESERVATION','arguments':{'restaurant':'Example Bistro','target_number':'02-2345-6661','time':missing,'party_size':missing}}
+    payload['output']['diagnostics'] = {'parse_success':True,'schema_valid':False,'error_message':'party_size must be a positive integer'}
+    snapshots, _ = run(payload, guard)
+    final = snapshots[-1]
+    assert final['action']['arguments']['party_size']['value'] == ('N/A' if missing else 'null')
+    assert final['action']['arguments']['number']['value'] == '02-2345-6661'
+    assert final['action']['validation_status'] == 'invalid'
+    assert final['error_code'] == 'model_schema_invalid'
+    assert final['status'] == 'failed' and final['stage'] == 'runtime.failed'
+    assert final['outcome'] is None and final['decision'] is None
+    assert final['runtime_metadata']['output']['diagnostics']['schema_valid'] is False
+    assert sum(e['type'] == 'runtime.failed' for e in final['events']) == 1
+
+
+@pytest.mark.parametrize('action', [
+    {'action':'UNKNOWN','arguments':{}},
+    {'tool':'call_phone','arguments':{'number':{}}},
+    {'tool':'call_phone','arguments':{'number':'123','target_number':'456'}},
+])
+def test_mapping_failure_sends_terminal_sse(action):
+    payload = remote()
+    payload['output']['proposed_action'] = action
+    snapshots, _ = run(payload)
+    final = snapshots[-1]
+    assert final['status'] == 'failed' and final['stage'] == 'runtime.failed'
+    assert final['error_code'] == 'action_mapping_failed'
+    assert final['outcome'] is None
+    assert final['raw_model_text'] == 'real raw output'

@@ -12,6 +12,7 @@ export function DecisionPanel({ run, guardEnabled }: { run: RunState | null; gua
   return (
     <div className="decision-body">
       <h3 className="eyebrow">Authorization details</h3>
+      {run?.status === 'failed' && !decision && <p role="status">Authorization not evaluated: {run.error}</p>}
       <dl className="decision-facts">
         <div><dt>Source</dt><dd>{value?.source_type.toUpperCase() || '—'}</dd></div>
         <div><dt>Affected Argument</dt><dd>{affectedArgument}</dd></div>

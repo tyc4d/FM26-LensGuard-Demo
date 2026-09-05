@@ -139,6 +139,9 @@ class DemoRuntime:
         except RuntimeFailure as exc:
             state.status = "failed"
             state.error = str(exc)
+            state.error_code = exc.code
+            if state.decision is None:
+                state.components["policy"] = "not_evaluated"
             await self._publish(record, "runtime.failed", state.error)
         except Exception:
             logger.exception("Runtime provider failed for %s at %s", state.id, state.stage)

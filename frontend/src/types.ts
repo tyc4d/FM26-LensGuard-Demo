@@ -20,6 +20,7 @@ export interface DetectedRegion {
 }
 
 export interface ProposedAction {
+  validation_status?: 'valid' | 'invalid';
   id: string;
   tool: string;
   arguments: Record<string, ProvenanceValue>;
@@ -77,6 +78,7 @@ export interface RunOutcome {
 
 export interface RunState {
   runtime?: 'mock' | 'prototype';
+  error_code?: string | null;
   raw_model_text?: string | null;
   timings?: Record<string, number>;
   components?: Record<string, string>;

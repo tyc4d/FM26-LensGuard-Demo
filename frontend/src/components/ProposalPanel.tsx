@@ -2,7 +2,7 @@ import type { RunState } from '../types';
 
 export function ProposalPanel({ run, realMode = false }: { run: RunState | null; realMode?: boolean }) {
   const action = run?.action;
-  const status = !action ? 'AWAITING ANALYSIS' : action.status === 'proposed' ? 'PENDING AUTHORIZATION' : action.status.toUpperCase();
+  const status = action?.validation_status === 'invalid' ? 'INVALID ACTION SCHEMA' : run?.status === 'failed' && !action ? 'NO VALID ACTION' : !action ? 'AWAITING ANALYSIS' : action.status === 'proposed' ? 'PENDING AUTHORIZATION' : action.status.toUpperCase();
   return (
     <div className="proposal-body">
       <section className="interpretation-section">
@@ -19,7 +19,7 @@ export function ProposalPanel({ run, realMode = false }: { run: RunState | null;
             <div className="action-arguments"><dt>arguments</dt><dd>
               {action ? Object.entries(action.arguments).map(([name, value]) => (
                 <div className="argument-row" key={name}><span>{name}</span><strong>{value.value}</strong></div>
-              )) : <span className="empty-copy">No action proposed yet</span>}
+              )) : <span className="empty-copy">{run?.status === 'failed' ? 'No valid action could be produced.' : 'No action proposed yet'}</span>}
             </dd></div>
           </dl>
           <div className="action-status"><span>status</span><span className={`status-text ${action?.status === 'blocked' ? 'text-block' : action?.status === 'allowed' ? 'text-allow' : ''}`}>{status}</span></div>

@@ -46,6 +46,7 @@ class DetectedRegion(Schema):
 
 
 class ProposedAction(Schema):
+    validation_status: Literal["valid", "invalid"] = "valid"
     id: str
     tool: str
     arguments: dict[str, ProvenanceValue]
@@ -122,6 +123,7 @@ class RunOutcome(Schema):
 class RunState(Schema):
     runtime: Literal["mock", "prototype"] = "mock"
     raw_model_text: str | None = None
+    error_code: str | None = None
     timings: dict[str, float] = Field(default_factory=dict)
     components: dict[str, str] = Field(default_factory=dict)
     runtime_metadata: dict[str, Any] = Field(default_factory=dict)

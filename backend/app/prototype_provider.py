@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from time import perf_counter
 from typing import Any
 
+import json
+import math
 import httpx
 from pydantic import BaseModel, ConfigDict
 
@@ -21,12 +23,19 @@ class FrameInput:
 
 class RuntimeFailure(Exception):
     """A safe, user-visible runtime failure, never replaced with fixture data."""
+    def __init__(self, message, code='runtime_error'):
+        super().__init__(message)
+        self.code = code
 
 
 class RemoteOutput(BaseModel):
+    model_config = ConfigDict(extra="allow")
     raw_text: str
     parsed: bool
-    proposed_action: dict[str, Any] | None
+    proposed_action: dict[str, Any] | None = None
+    native_action: dict[str, Any] | None = None
+    candidate_action: dict[str, Any] | None = None
+    diagnostics: dict[str, Any] = {}
 
 
 class RemoteResponse(BaseModel):
@@ -79,16 +88,31 @@ class PrototypeRuntimeProvider:
         except ValueError as exc:
             raise RuntimeFailure('Prototype returned an invalid API contract; no mock fallback was used.') from exc
 
-    def map_action(self, response, run_id):
-        raw = response.output.proposed_action
-        if not response.output.parsed or not raw:
-            raise RuntimeFailure('Model output could not be parsed. Raw model text is available in technical details.')
-        if not isinstance(raw.get('tool'), str) or not isinstance(raw.get('arguments'), dict):
-            raise RuntimeFailure('Prototype returned an invalid structured action.')
-        return ProposedAction(id=f'{run_id}_action', tool=raw['tool'], arguments={
-            name: ProvenanceValue(id=f'{run_id}_{name}', value=str(value), source_type='model',
-                source_id=response.request_id, trust='untrusted', authority=['none'],
-                lineage=['image_upload', response.request_id]) for name, value in raw['arguments'].items()})
+    def map_action(self, response, run_id, *, candidate=False):
+        output = response.output
+        raw = output.candidate_action if candidate else (output.proposed_action or output.native_action)
+        if not raw:
+            raise RuntimeFailure('Model output could not be parsed. Raw model text is available in technical details.', 'model_output_parse_failed')
+        tools = {'CALL': 'call_phone', 'RESTAURANT_RESERVATION': 'restaurant_reservation',
+                 'DIRECTION_ADVICE': 'navigate', 'OPEN_URL': 'open_url',
+                 'SAFETY_ADVICE': 'safety_advice', 'NONE': 'none'}
+        tool = raw.get('tool')
+        if tool is None:
+            tool = tools.get(raw.get('action'))
+        if tool not in tools.values() or not isinstance(raw.get('arguments'), dict):
+            raise RuntimeFailure('Prototype action mapping failed: unsupported action or invalid arguments.', 'action_mapping_failed')
+        arguments = {}
+        for name, value in raw['arguments'].items():
+            if not isinstance(name, str) or not name or not candidate and (type(value) not in (str, int, bool, float) or isinstance(value, float) and not math.isfinite(value)):
+                raise RuntimeFailure('Prototype action mapping failed: argument values must be finite scalars.', 'action_mapping_failed')
+            key = 'number' if name == 'target_number' else name
+            if key in arguments:
+                raise RuntimeFailure('Prototype action mapping failed: conflicting number aliases.', 'action_mapping_failed')
+            display_value = (value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, allow_nan=False)) if candidate else str(value)
+            arguments[key] = ProvenanceValue(id=f'{run_id}_{key}', value=display_value, source_type='model',
+                source_id=response.request_id, trust='untrusted', authority=['none'], lineage=['image_upload', response.request_id])
+        return ProposedAction(id=f'{run_id}_action', tool=tool, arguments=arguments,
+                              validation_status='invalid' if candidate else 'valid')
 
     async def run(self, state, frame, publish):
         started = perf_counter()
@@ -104,6 +128,14 @@ class PrototypeRuntimeProvider:
         state.timings['prototype_request_ms'] = request_ms
         state.components['vlm'] = 'live'
         await publish('inference.completed', 'Real local model response received.')
+        if not response.output.parsed:
+            # A syntactically decoded candidate is display-only. Never promote
+            # schema-invalid output to an executable action, even with Guard OFF.
+            if response.output.candidate_action is not None:
+                state.action = self.map_action(response, state.id, candidate=True)
+                detail = response.output.diagnostics.get('error_message') or 'Required action arguments are missing or invalid.'
+                raise RuntimeFailure(f'Model inference completed, but action schema validation failed: {detail}', 'model_schema_invalid')
+            raise RuntimeFailure('Model output could not be parsed. Raw model text is available in technical details.', 'model_output_parse_failed')
         state.action = self.map_action(response, state.id)
         await publish('action.parsed', 'Structured action validated by Prototype parser.')
         state.trace_nodes = [TraceNode(id='input', label='IMAGE', type=f'{frame.source} input', source='camera'),
