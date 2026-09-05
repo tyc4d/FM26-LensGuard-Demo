@@ -18,23 +18,23 @@ def reservation_issues(action: dict[str, Any] | None) -> list[ValidationIssue]:
         return []  # The normal action mapper reports malformed argument objects.
     issues = []
     fields = [
-        ('restaurant', 'Restaurant name'),
-        ('number' if 'number' in arguments else 'target_number', 'Restaurant phone number'),
-        ('time', 'Reservation time'),
-        ('party_size', 'Party size'),
+        ('restaurant', '餐廳名稱'),
+        ('number' if 'number' in arguments else 'target_number', '餐廳電話'),
+        ('time', '訂位時間'),
+        ('party_size', '用餐人數'),
     ]
     for field, label in fields:
         value = arguments.get(field)
         missing = value is None or isinstance(value, str) and value.strip().casefold() in MISSING_VALUES
         key = 'number' if field == 'target_number' else field
         if missing:
-            message = f'{label} is missing from the proposal.'
+            message = f'提議中缺少{label}。'
             kind = 'missing'
         elif field == 'party_size' and (type(value) is not int or value < 1):
-            message = 'Party size must be a positive whole number.'
+            message = '用餐人數必須為大於零的整數。'
             kind = 'invalid'
         elif field != 'party_size' and not isinstance(value, str):
-            message = f'{label} must be text.'
+            message = f'{label}必須為文字。'
             kind = 'invalid'
         else:
             continue

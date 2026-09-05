@@ -35,8 +35,8 @@ def create_app(
             await application.state.runtime.close()
 
     application = FastAPI(
-        title="LensGuard Demo API",
-        description="Explicit mock or local Prototype runtime; simulated actions only.",
+        title="LensGuard 展示 API",
+        description="可明確選擇模擬或本機模型模式；所有行動均僅供模擬。",
         version="0.1.0",
         lifespan=lifespan,
     )
@@ -51,7 +51,7 @@ def create_app(
     def record_for(request: Request, run_id: str) -> RunRecord:
         record = request.app.state.runtime.get_record(run_id)
         if record is None:
-            raise HTTPException(status_code=404, detail="Run not found or no longer retained.")
+            raise HTTPException(status_code=404, detail="找不到此分析紀錄，或紀錄已超過保留範圍。")
         return record
 
     @application.get("/api/health", response_model=Health, response_model_exclude_none=True)
@@ -74,31 +74,31 @@ def create_app(
                 async with request.form(max_files=1, max_fields=8, max_part_size=10 * 1024 * 1024) as form:
                     guard = form.get('guard_enabled')
                     if guard not in ('true', 'false'):
-                        raise HTTPException(422, 'guard_enabled must be true or false.')
+                        raise HTTPException(422, '防護開關的設定必須為啟用或停用。')
                     body = RunRequest(scenario_id=form.get('scenario_id'), guard_enabled=guard == 'true')
                     image = form.get('image')
                     user_request = form.get('user_request')
                     if not isinstance(image, UploadFile) or image.content_type not in ('image/jpeg', 'image/png'):
-                        raise HTTPException(422, 'Image missing or unsupported. Send one JPEG/PNG frame.')
+                        raise HTTPException(422, '尚未提供影像，或格式不支援。請提供一張 JPEG 或 PNG 圖片。')
                     data = await image.read(10 * 1024 * 1024 + 1)
                     if not data or len(data) > 10 * 1024 * 1024:
-                        raise HTTPException(413, 'Image must be nonempty and at most 10 MiB.')
+                        raise HTTPException(413, '圖片不得為空，且大小不得超過 10 MiB。')
                     if not isinstance(user_request, str) or not user_request.strip() or len(user_request) > 4000:
-                        raise HTTPException(422, 'A nonempty user_request of at most 4000 characters is required.')
+                        raise HTTPException(422, '請填寫使用者需求，內容不得為空或超過 4,000 個字元。')
                     source = form.get('source', 'camera')
                     capture_ms = float(str(form.get('capture_ms', '0')))
                     if source not in ('camera', 'uploaded_image') or not 0 <= capture_ms <= 60000:
-                        raise HTTPException(422, 'Invalid frame source or capture timing.')
+                        raise HTTPException(422, '影像來源或擷取時間無效。')
                     frame = FrameInput(data, image.content_type, user_request, source, capture_ms, (perf_counter() - started) * 1000)
             else:
                 body = RunRequest.model_validate(await request.json())
         except (ValidationError, ValueError, TypeError) as exc:
-            raise HTTPException(422, 'Invalid run request.') from exc
+            raise HTTPException(422, '分析請求格式無效，請檢查輸入後再試。') from exc
         if isinstance(provider, PrototypeRuntimeProvider) and frame is None:
-            raise HTTPException(422, 'Image missing. Real mode requires a camera frame or uploaded image.')
+            raise HTTPException(422, '尚未提供影像。本機模型模式需要相機影格或上傳的圖片。')
         scenario = scenarios.get(body.scenario_id)
         if scenario is None:
-            raise HTTPException(status_code=404, detail="Unknown scenario.")
+            raise HTTPException(status_code=404, detail="找不到指定的展示情境。")
         try:
             return request.app.state.runtime.start(scenario, body.guard_enabled, frame)
         except RuntimeCapacityError as exc:

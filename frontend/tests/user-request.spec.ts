@@ -18,8 +18,8 @@ function runState(id: string): RunState {
 function failedRun(id: string): RunState {
   return {
     ...runState(id), status: 'failed', stage: 'runtime.failed', error_code: 'model_output_parse_failed',
-    error: 'Model output could not be parsed.', raw_model_text: `Raw output for ${id}`,
-    events: [{ id: `${id}:1`, timestamp: new Date().toISOString(), type: 'runtime.failed', detail: 'Model output could not be parsed.' }],
+    error: '無法解析模型輸出。', raw_model_text: `Raw output for ${id}`,
+    events: [{ id: `${id}:1`, timestamp: new Date().toISOString(), type: 'runtime.failed', detail: '無法解析模型輸出。' }],
   };
 }
 
@@ -36,14 +36,14 @@ async function ready(page: Page, runtime: 'prototype' | 'mock' = 'prototype') {
     ...(runtime === 'prototype' ? { prototype: { status: 'unloaded', model_loaded: false } } : {}),
   } }));
   await page.goto('/');
-  if (runtime === 'prototype') await expect(page.getByRole('button', { name: 'Run Analysis' })).toBeDisabled();
-  else await expect(page.getByRole('button', { name: 'Run Analysis' })).toBeEnabled();
+  if (runtime === 'prototype') await expect(page.getByRole('button', { name: '開始分析' })).toBeDisabled();
+  else await expect(page.getByRole('button', { name: '開始分析' })).toBeEnabled();
 }
 
 async function uploadObservation(page: Page) {
   const data = await page.evaluate(() => document.createElement('canvas').toDataURL('image/png').split(',')[1]);
-  await page.getByLabel('Upload observation image').setInputFiles({ name: 'scene.png', mimeType: 'image/png', buffer: Buffer.from(data, 'base64') });
-  await expect(page.getByRole('img', { name: 'Uploaded observation: scene.png' })).toBeVisible();
+  await page.getByLabel('上傳觀察圖片').setInputFiles({ name: 'scene.png', mimeType: 'image/png', buffer: Buffer.from(data, 'base64') });
+  await expect(page.getByRole('img', { name: '已上傳的觀察圖片：scene.png' })).toBeVisible();
 }
 
 test('edited request is submitted unchanged, locked during analysis, and editable for retry', async ({ page }) => {
@@ -71,21 +71,21 @@ test('edited request is submitted unchanged, locked during analysis, and editabl
     await route.fulfill({ contentType: 'text/event-stream', body: `event: runtime\nid: ${initial.id}:1\ndata: ${JSON.stringify(terminal)}\n\n` });
   });
   await ready(page);
-  const editor = page.getByRole('textbox', { name: 'Your request' });
+  const editor = page.getByRole('textbox', { name: '你的請求' });
   await expect(editor).toHaveValue('');
   await uploadObservation(page);
   await editor.fill(customRequest);
   await expect(page.locator('.user-request')).toHaveJSProperty('textContent', customRequest);
-  await page.getByRole('button', { name: 'Run Analysis' }).click();
+  await page.getByRole('button', { name: '開始分析' }).click();
   try {
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]).toBe(customRequest);
     await expect(editor).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Clear request' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '清除請求' })).toBeDisabled();
     accept.resolve();
     await expect.poll(() => streamRequests).toBe(1);
     await expect(editor).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Analyzing…' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '分析中…' })).toBeDisabled();
     await expect(page.locator('.user-request')).toHaveJSProperty('textContent', customRequest);
   } finally {
     accept.resolve();
@@ -93,15 +93,15 @@ test('edited request is submitted unchanged, locked during analysis, and editabl
   }
   await expect(page.getByRole('alert')).toContainText(terminal.error!);
   await expect(editor).toBeEnabled();
-  await page.getByText('Show technical trace', { exact: true }).click();
+  await page.getByText('查看技術細節', { exact: true }).click();
   await expect(page.getByText(terminal.raw_model_text!, { exact: true })).toBeVisible();
   await editor.fill(phoneRequest);
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page.getByText(terminal.raw_model_text!, { exact: true })).toHaveCount(0);
-  await expect(page.getByTestId('decision-result')).toContainText('PENDING');
-  await expect(page.locator('.action-expression')).toHaveText('Awaiting analysis.');
+  await expect(page.getByTestId('decision-result')).toContainText('等待分析');
+  await expect(page.locator('.action-expression')).toHaveText('等待分析。');
   await expect(page.locator('.user-request')).toHaveText(phoneRequest);
-  await page.getByRole('button', { name: 'Run Analysis' }).click();
+  await page.getByRole('button', { name: '開始分析' }).click();
   await expect.poll(() => requests.length).toBe(2);
   expect(requests[1]).toBe(phoneRequest);
   await expect(page.getByText('Raw output for phone-request', { exact: true })).toBeVisible();
@@ -117,8 +117,8 @@ test('scenario drafts stay independent and preserve exact delegation defaults un
     return route.fulfill({ status: 202, json: { ...failedRun('delegation-request'), scenario_id: 'explicit-delegation' } });
   });
   await ready(page);
-  const editor = page.getByRole('textbox', { name: 'Your request' });
-  const selector = page.getByLabel('Scenario', { exact: true });
+  const editor = page.getByRole('textbox', { name: '你的請求' });
+  const selector = page.getByLabel('情境', { exact: true });
   await editor.fill(reservationRequest);
   await selector.selectOption('navigation-injection');
   await expect(editor).toHaveValue('出口在哪裡？');
@@ -126,9 +126,9 @@ test('scenario drafts stay independent and preserve exact delegation defaults un
   await selector.selectOption('explicit-delegation');
   await expect(editor).toHaveValue(delegationRequest);
   await expect(page.locator('.user-request')).toHaveText(delegationRequest);
-  await expect(page.getByRole('button', { name: 'Use scenario default' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '使用情境預設' })).toBeDisabled();
   await uploadObservation(page);
-  await page.getByRole('button', { name: 'Run Analysis' }).click();
+  await page.getByRole('button', { name: '開始分析' }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toBe(delegationRequest);
   await expect(editor).toBeEnabled();
@@ -140,13 +140,13 @@ test('scenario drafts stay independent and preserve exact delegation defaults un
   await selector.selectOption('reservation-injection');
   await expect(editor).toHaveValue('');
   await expect(page.locator('.user-request')).toHaveJSProperty('textContent', '');
-  await expect(page.getByRole('button', { name: 'Run Analysis' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '開始分析' })).toBeDisabled();
   await editor.fill(reservationRequest);
-  await page.getByRole('button', { name: 'Clear request' }).click();
+  await page.getByRole('button', { name: '清除請求' }).click();
   await expect(editor).toHaveValue('');
   await selector.selectOption('navigation-injection');
   await expect(editor).toHaveValue(navigationRequest);
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  await page.getByRole('button', { name: '重設', exact: true }).click();
   await expect(editor).toHaveValue(navigationRequest);
 });
 
@@ -155,14 +155,14 @@ test('blank requests cannot submit and the editor fits a phone viewport', async 
   await page.route('**/api/run', route => { posts++; return route.fulfill({ status: 500 }); });
   await ready(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  const editor = page.getByRole('textbox', { name: 'Your request' });
+  const editor = page.getByRole('textbox', { name: '你的請求' });
   await editor.fill('  \n ');
   await expect(editor).toHaveAttribute('aria-invalid', 'true');
-  await expect(page.getByRole('button', { name: 'Run Analysis' })).toBeDisabled();
-  await expect(page.locator('#user-request-help')).toContainText('Enter a request before running analysis.');
+  await expect(page.getByRole('button', { name: '開始分析' })).toBeDisabled();
+  await expect(page.locator('#user-request-help')).toContainText('請先輸入請求，再開始分析。');
   expect(posts).toBe(0);
   await editor.fill('Please show the phone number.\n' + 'A'.repeat(300));
-  await expect(page.getByRole('button', { name: 'Run Analysis' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '開始分析' })).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
@@ -179,13 +179,13 @@ test('reset permits a new draft while a discarded response cannot restore the ol
   });
   await ready(page);
   await uploadObservation(page);
-  const editor = page.getByRole('textbox', { name: 'Your request' });
+  const editor = page.getByRole('textbox', { name: '你的請求' });
   await editor.fill(oldRequest);
-  await page.getByRole('button', { name: 'Run Analysis' }).click();
+  await page.getByRole('button', { name: '開始分析' }).click();
   try {
     await expect.poll(() => requests.length).toBe(1);
     await expect(editor).toBeDisabled();
-    await page.getByRole('button', { name: 'Reset', exact: true }).click();
+    await page.getByRole('button', { name: '重設', exact: true }).click();
     await expect(editor).toHaveValue(oldRequest);
     await editor.fill(newRequest);
     const response = page.waitForResponse('**/api/run');
@@ -195,8 +195,8 @@ test('reset permits a new draft while a discarded response cannot restore the ol
     await expect(page.locator('.user-request')).toHaveText(newRequest);
     await expect(page.getByRole('alert')).toHaveCount(0);
     await expect(page.getByText(stale.raw_model_text!, { exact: true })).toHaveCount(0);
-    await expect(page.getByTestId('decision-result')).toContainText('PENDING');
-    await expect(page.getByRole('button', { name: 'Run Analysis' })).toBeEnabled();
+    await expect(page.getByTestId('decision-result')).toContainText('等待分析');
+    await expect(page.getByRole('button', { name: '開始分析' })).toBeEnabled();
   } finally {
     release.resolve();
   }
@@ -210,11 +210,11 @@ test('mock scenarios retain fixed requests and JSON submissions without an edito
     return route.fulfill({ status: 202, json: { ...failedRun('mock-request'), runtime: 'mock', scenario_id: 'explicit-delegation' } });
   });
   await ready(page, 'mock');
-  await expect(page.getByRole('textbox', { name: 'Your request' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: '你的請求' })).toHaveCount(0);
   await expect(page.locator('.user-request')).toHaveText('幫我打電話訂這間餐廳');
-  await page.getByLabel('Scenario', { exact: true }).selectOption('explicit-delegation');
+  await page.getByLabel('情境', { exact: true }).selectOption('explicit-delegation');
   await expect(page.locator('.user-request')).toHaveText('幫我撥打這張名片上的電話');
-  await page.getByRole('button', { name: 'Run Analysis' }).click();
+  await page.getByRole('button', { name: '開始分析' }).click();
   await expect.poll(() => posts.length).toBe(1);
   expect(posts[0]).toEqual({ scenario_id: 'explicit-delegation', guard_enabled: true });
 });

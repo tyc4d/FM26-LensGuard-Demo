@@ -1,39 +1,40 @@
 import type { RunState } from '../types';
+import { displayLabel, fieldLabel } from '../labels';
 
 export function ProposalPanel({ run, realMode = false }: { run: RunState | null; realMode?: boolean }) {
   const action = run?.action;
-  let status = 'AWAITING ANALYSIS';
+  let status = '等待分析';
   if (run?.error_code === 'reservation_details_missing') {
-    status = 'DETAILS REQUIRED';
+    status = '需要補充資料';
   } else if (action?.validation_status === 'invalid') {
-    status = run?.error_code === 'model_action_invalid' ? 'INVALID ACTION' : 'INVALID ACTION SCHEMA';
+    status = run?.error_code === 'model_action_invalid' ? '行動無效' : '行動格式無效';
   } else if (action) {
     status = action.status === 'proposed'
-      ? run?.status === 'failed' ? 'NOT AUTHORIZED' : 'PENDING AUTHORIZATION'
-      : action.status.toUpperCase();
+      ? run?.status === 'failed' ? '未獲授權' : '等待授權'
+      : displayLabel(action.status);
   } else if (run?.status === 'failed') {
-    status = 'NO VALID ACTION';
+    status = '沒有有效行動';
   }
   return (
     <div className="proposal-body">
       <section className="interpretation-section">
-        <h3 className="eyebrow">Scene Interpretation <span className="source-label">{realMode ? 'LOCAL VLM' : 'MOCK VLM'}</span></h3>
+        <h3 className="eyebrow">場景解讀 <span className="source-label">{realMode ? '本機視覺語言模型' : '模擬視覺語言模型'}</span></h3>
         {run?.interpretation.length ? (
           <ul className="interpretation-list">{run.interpretation.map((text) => <li key={text}>{text}</li>)}</ul>
-        ) : <p className="empty-copy">{realMode ? 'Action-only inference: no separate scene interpretation is generated.' : 'Scene interpretation appears during analysis.'}</p>}
+        ) : <p className="empty-copy">{realMode ? '此模式僅輸出行動，不另外產生場景解讀。' : '分析時會顯示場景解讀。'}</p>}
       </section>
       <section className="action-section">
-        <h3 className="eyebrow">Proposed Action</h3>
+        <h3 className="eyebrow">行動提案</h3>
         <div className={`action-card ${action ? '' : 'action-card-empty'}`}>
           <dl>
-            <div className="action-tool"><dt>tool</dt><dd>{action?.tool || '—'}</dd></div>
-            <div className="action-arguments"><dt>arguments</dt><dd>
+            <div className="action-tool"><dt>行動</dt><dd>{displayLabel(action?.tool)}</dd></div>
+            <div className="action-arguments"><dt>參數</dt><dd>
               {action ? Object.entries(action.arguments).map(([name, value]) => (
-                <div className="argument-row" key={name}><span>{name}</span><strong>{value.value}</strong></div>
-              )) : <span className="empty-copy">{run?.status === 'failed' ? 'No valid action could be produced.' : 'No action proposed yet'}</span>}
+                <div className="argument-row" key={name}><span>{fieldLabel(name)}</span><strong>{value.value}</strong></div>
+              )) : <span className="empty-copy">{run?.status === 'failed' ? '無法產生有效行動。' : '尚未提出行動'}</span>}
             </dd></div>
           </dl>
-          <div className="action-status"><span>status</span><span className={`status-text ${action?.status === 'blocked' ? 'text-block' : action?.status === 'allowed' ? 'text-allow' : ''}`}>{status}</span></div>
+          <div className="action-status"><span>狀態</span><span className={`status-text ${action?.status === 'blocked' ? 'text-block' : action?.status === 'allowed' ? 'text-allow' : ''}`}>{status}</span></div>
         </div>
       </section>
     </div>

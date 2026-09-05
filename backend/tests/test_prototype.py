@@ -56,6 +56,10 @@ def test_real_mapping_and_multipart(allow, guard, expected):
     assert final['outcome']['attack_success'] is None
     assert final['action']['arguments']['number']['value'] == '0988-111-222'
     assert final['raw_model_text'] == 'real raw output'
+    assert final['runtime_metadata']['policy']['reason'] == 'A deterministic decision.'
+    if guard:
+        assert final['decision']['reason'] != final['runtime_metadata']['policy']['reason']
+        assert '授權' in final['decision']['reason']
     assert final['validation_issues'] == []
     assert final['regions'] == []
     assert final['timings']['prototype_inference_ms'] == 12.3
@@ -71,7 +75,7 @@ def test_parse_failure_preserves_raw():
     assert snapshots[-1]['status'] == 'failed'
     assert snapshots[-1]['action'] is None
     assert snapshots[-1]['raw_model_text'] == 'real raw output'
-    assert 'could not be parsed' in snapshots[-1]['error']
+    assert '無法解析模型輸出' in snapshots[-1]['error']
 
 
 @pytest.mark.parametrize('error', [httpx.ConnectError('offline'), httpx.ReadTimeout('slow')])
@@ -79,7 +83,10 @@ def test_no_mock_fallback(error):
     snapshots, _ = run(failure=error)
     assert snapshots[-1]['status'] == 'failed'
     assert snapshots[-1]['action'] is None
-    assert 'no mock fallback' in snapshots[-1]['error']
+    assert '不會改用模擬結果' in snapshots[-1]['error']
+    assert snapshots[-1]['runtime_metadata']['upstream_error'] == {
+        'type': type(error).__name__, 'detail': str(error),
+    }
 
 
 def test_missing_policy_blocks_execution():
@@ -138,6 +145,8 @@ def test_unusable_direction_preserves_parser_result_but_never_executes(guard, ca
     assert final['raw_model_text'] == raw
     assert final['runtime_metadata']['output']['parsed'] is True
     assert final['runtime_metadata']['output']['diagnostics']['schema_valid'] is True
+    assert final['runtime_metadata']['output']['validation_error'] == "unsupported direction: '未知'"
+    assert '模型提出的方向不明或無法使用' in final['error']
     assert final['outcome'] is None and final['decision'] is None
     assert final['components']['policy'] == 'not_evaluated'
     assert [event['type'] for event in final['events']] == [
@@ -152,7 +161,27 @@ def test_image_required_and_unavailable_health():
         health = client.get('/api/health').json()
         assert health['runtime'] == 'prototype' and health['prototype']['status'] == 'unavailable'
         response = client.post('/api/run', json={'scenario_id': 'reservation-injection', 'guard_enabled': True})
-        assert response.status_code == 422 and 'Image missing' in response.json()['detail']
+        assert response.status_code == 422 and '尚未提供影像' in response.json()['detail']
+
+
+def test_upstream_error_is_chinese_while_original_health_and_run_diagnostics_remain():
+    detail = 'GPU_BUSY: another compute process is active.'
+    def handler(request):
+        if request.url.path == '/health':
+            return httpx.Response(200, json={'status': 'error', 'model_loaded': False, 'error': detail})
+        return httpx.Response(503, json={'detail': detail})
+    provider = PrototypeRuntimeProvider('http://prototype.test', transport=httpx.MockTransport(handler))
+    with TestClient(create_app(Settings(runtime='prototype'), provider)) as client:
+        health = client.get('/api/health').json()['prototype']
+        assert health['error'] == '顯示卡正由其他程式使用，請待資源空閒後再試。'
+        assert health['raw_error'] == detail
+        response = client.post('/api/run', files={'image': ('scene.jpg', b'image', 'image/jpeg')},
+            data={'scenario_id': 'reservation-injection', 'guard_enabled': 'false', 'user_request': '測試請求'})
+        snapshots = [json.loads(line[6:]) for line in client.get(f"/api/run/{response.json()['id']}/events").text.splitlines() if line.startswith('data: ')]
+        final = snapshots[-1]
+        assert final['error'] == health['error']
+        assert final['status'] == 'failed' and final['outcome'] is None
+        assert final['runtime_metadata']['upstream_error'] == {'status_code': 503, 'detail': detail}
 
 
 @pytest.mark.parametrize('native', [False, True])

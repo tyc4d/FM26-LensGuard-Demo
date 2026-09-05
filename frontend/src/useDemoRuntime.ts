@@ -84,7 +84,7 @@ export function useDemoRuntime() {
             }
           } catch (cause) {
             if (cause instanceof ApiError && cause.status === 404 && !disposed && version === generation.current) {
-              applyState({ ...active, status: 'failed', error: 'This run is no longer available. Reset and run the scenario again.' });
+              applyState({ ...active, status: 'failed', error: '此次分析已無法取得。請重設並重新執行情境。' });
             } else throw cause;
           }
         }
@@ -114,9 +114,9 @@ export function useDemoRuntime() {
       uploadRoundtrip.current = 0;
       let frame: CapturedFrame | undefined;
       if (health?.runtime === 'prototype') {
-        if (!userRequest.trim()) throw new Error('Enter a user request before running analysis.');
-        if (userRequest.length > 4000) throw new Error('Keep the user request within 4000 characters.');
-        if (!capture) throw new Error('Camera capture is unavailable.');
+        if (!userRequest.trim()) throw new Error('請先輸入任務內容，再執行分析。');
+        if (userRequest.length > 4000) throw new Error('任務內容請限制在 4,000 個字元以內。');
+        if (!capture) throw new Error('目前無法擷取相機畫面。');
         setSubmittedUserRequest(userRequest);
         frame = await capture();
       }
@@ -139,22 +139,22 @@ export function useDemoRuntime() {
         if (version !== generation.current) return;
         try {
           const snapshot = JSON.parse((message as MessageEvent<string>).data) as RunState;
-          if (snapshot.id !== initial.id || !Array.isArray(snapshot.events)) throw new Error('Invalid runtime event');
+          if (snapshot.id !== initial.id || !Array.isArray(snapshot.events)) throw new Error('執行事件格式無效');
           applyState(snapshot);
           setConnected(true);
         } catch {
           source.close();
-          setError('The runtime stream could not be read. Recovering the latest state from the backend.');
+          setError('無法讀取執行事件串流，正在向後端取得最新狀態。');
         }
       });
       source.onerror = () => {
         if (version !== generation.current || currentRun.current?.status !== 'running') return;
         setConnected(false);
-        setError('Runtime connection interrupted. Reconnecting; you can also reset this run.');
+        setError('執行連線已中斷，正在重新連線；您也可以重設此次分析。');
       };
     } catch (cause) {
       if (!mounted.current || version !== generation.current) return;
-      setError(cause instanceof Error ? cause.message : 'Cannot reach the backend. Start the FastAPI server and try again.');
+      setError(cause instanceof Error ? cause.message : '無法連線至後端。請確認後端服務已啟動後再試一次。');
 
     } finally {
       if (mounted.current && version === generation.current) {

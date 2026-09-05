@@ -12,15 +12,31 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    signal: AbortSignal.timeout(init?.method === 'POST' ? 30000 : 6000),
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new ApiError(typeof body?.detail === 'string' ? body.detail : `Request failed (${response.status}).`, response.status);
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      signal: AbortSignal.timeout(init?.method === 'POST' ? 30000 : 6000),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new ApiError(typeof body?.detail === 'string' ? body.detail : `請求失敗（${response.status}）。`, response.status);
+    }
+    return await response.json() as T;
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'TimeoutError') {
+      throw new Error('後端回應逾時，請稍後再試。');
+    }
+    if (cause instanceof DOMException && cause.name === 'AbortError') {
+      throw new Error('後端請求已中止，請再試一次。');
+    }
+    if (cause instanceof TypeError) {
+      throw new Error('無法連線至後端。請確認網路連線與後端服務後再試一次。');
+    }
+    if (cause instanceof SyntaxError) {
+      throw new Error('後端回應格式無效，請稍後再試。');
+    }
+    throw cause;
   }
-  return response.json() as Promise<T>;
 }
 
 export const api = {

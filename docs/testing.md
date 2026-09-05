@@ -1,3 +1,12 @@
+# 繁體中文介面驗證 — 2026-09-05
+
+- 即時展示、評估、系統架構、相機操作、授權結果、欄位名稱、事件與耗時標籤已改為繁體中文；HTML 語言為 `zh-Hant`。模型原文、原始 JSON、識別碼與使用者請求保持不變。
+- **76 個後端測試通過**，包括中文授權說明、原始政策文字保留，以及上游服務錯誤的中文提示與原始診斷。
+- **38 個瀏覽器案例全部驗證通過**：首次執行通過 36 個，另 2 個受編輯期間的 Vite 熱更新干擾，trace 確認重新載入元件中斷當次狀態；停止編輯後針對該 2 個案例重跑，均通過。新增至既有案例的手機診斷展開檢查也通過。
+- Docker 前後端映像建置、TypeScript／Vite、容器健康與可信任 HTTPS 檢查通過。已部署中文介面，未重啟或修改 Prototype 模型服務。
+- 真實 HTTPS 瀏覽器推論 `run_8617cb9076364c9c` 使用 Qwen3-VL 8B，正確保留測試請求的日期、時間與 4 位，推論約 1.73 秒。畫面顯示「已阻擋」與中文授權說明；原始模型輸出仍完整保留，未執行外部訂位。
+- 實際檢查桌面與手機的三個頁面；介面中的拉丁文字僅剩品牌、模型名稱、檔名、識別碼及模型原始值。檢查時發現長 JSON 會撐寬手機版面，已調整技術明細換行。以該真實回應重播，確認 390／1000／1600 像素下展開診斷均無水平溢出，原始文字不變；另以服務錯誤範例確認中文提示與可展開原文正常。
+
 # Reservation details and editable request validation — 2026-09-05
 
 - Missing reservation fields now produce `reservation_details_missing` with field-specific `validation_issues`. `N/A`, null, omitted values and known missing-value markers stay visible as model output; the Demo never substitutes time, party size or a different action. Party size requires a positive integer. Raw parser diagnostics remain expandable while the main message explains what needs correction. Invalid proposals cannot reach authorization or Guard OFF simulation.

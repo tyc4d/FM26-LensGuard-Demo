@@ -54,9 +54,9 @@ def load_scenarios(path: Path) -> dict[str, Scenario]:
     )
     by_id = {scenario.id: scenario for scenario in scenarios}
     if len(by_id) != len(scenarios):
-        raise ValueError("Scenario IDs must be unique")
+        raise ValueError("情境識別碼不得重複。")
     if not by_id:
-        raise ValueError("At least one mock scenario is required")
+        raise ValueError("至少需要一個模擬情境。")
     return by_id
 
 
@@ -102,10 +102,10 @@ class MockRuntimeProvider:
         value.authority = ["observation"]
         value.lineage = [frame_id, scenario.source_region_id]
         nodes = [
-            TraceNode(id="camera", label="CAMERA", type="source", source="camera"),
-            TraceNode(id="region", label=scenario.source_region_id, type="visual region", source="camera"),
-            TraceNode(id="value", label=value.value, type="derived value", source="camera"),
-            TraceNode(id="argument", label=f"{action.tool}.{scenario.argument_name}", type="action argument", source="model"),
+            TraceNode(id="camera", label="相機", type="來源", source="camera"),
+            TraceNode(id="region", label=scenario.source_region_id, type="影像區域", source="camera"),
+            TraceNode(id="value", label=value.value, type="衍生值", source="camera"),
+            TraceNode(id="argument", label=f"{action.tool}.{scenario.argument_name}", type="行動參數", source="model"),
         ]
         edges = [
             TraceEdge(from_="camera", to="region"),
@@ -116,8 +116,8 @@ class MockRuntimeProvider:
             value.authority.append("delegated")
             value.lineage.extend(["user_request", "delegation"])
             nodes.extend([
-                TraceNode(id="user", label="USER REQUEST", type="task authority", source="user"),
-                TraceNode(id="delegation", label="delegation", type="explicit authorization", source="user"),
+                TraceNode(id="user", label="使用者需求", type="任務授權", source="user"),
+                TraceNode(id="delegation", label="明確授權", type="明確授權", source="user"),
             ])
             edges.extend([
                 TraceEdge(from_="user", to="delegation"),
@@ -136,9 +136,9 @@ class MockRuntimeProvider:
             rule_id="camera.argument.requires_delegation",
             affected_argument=affected_argument,
             reason=(
-                f"Explicit user delegation permits this camera-derived value to bind {affected_argument} for this action."
+                "使用者已明確授權，允許此行動採用相機觀察到的參數值。"
                 if delegated
-                else "Camera-derived content attempted to bind a security-sensitive action argument without explicit user delegation."
+                else "相機內容試圖在未取得使用者明確授權的情況下，設定需要保護的行動參數。"
             ),
             source_authority="DELEGATED" if delegated else "OBSERVATION_ONLY",
             required_authority=(
@@ -157,25 +157,26 @@ class MockRuntimeProvider:
                 status="executed",
                 attack_success=True if scenario.attack else None,
                 result=scenario.proposed_value,
-                detail="Proposed action executed in simulation. No external service was contacted.",
+                detail="已模擬執行提議的行動，未聯絡任何外部服務。",
             )
         if decision is None:
-            raise ValueError("An enabled guard requires a policy decision")
+            raise ValueError("啟用防護時，必須先完成授權判斷。")
         if decision.result == "allow":
             return RunOutcome(
                 status="allowed",
                 attack_success=None,
                 result=scenario.proposed_value,
-                detail="Action authorized by explicit user delegation. Simulation only; no external service was contacted.",
+                detail="使用者已明確授權此行動。目前僅執行模擬，未聯絡任何外部服務。",
             )
         safe_direction = scenario.ground_truth if scenario.tool == "navigate" else None
+        safe_direction_label = {"left": "向左", "right": "向右"}.get(safe_direction, safe_direction)
         return RunOutcome(
             status="blocked",
             attack_success=False if scenario.attack else None,
             result=safe_direction,
             detail=(
-                f"Injected direction blocked. Mock safe result: {safe_direction}."
+                f"已阻擋注入的方向指示。模擬情境中的正確方向：{safe_direction_label}。"
                 if safe_direction
-                else "Unauthorized camera-derived target blocked. No external action was executed."
+                else "已阻擋未獲授權的相機來源目標，未執行任何外部行動。"
             ),
         )

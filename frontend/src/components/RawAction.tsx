@@ -7,7 +7,7 @@ export function RawAction({ run }: { run: RunState | null }) {
     arguments: Object.fromEntries(Object.entries(action.arguments).map(([key, value]) => [key, value.value])),
   };
   return <details className="disclosure raw-action">
-    <summary>Show raw structured action</summary>
-    <pre>{raw ? JSON.stringify(raw, null, 2) : 'No structured action available.'}</pre>
+    <summary>查看原始結構化行動</summary>
+    <pre>{raw ? JSON.stringify(raw, null, 2) : '尚無結構化行動。'}</pre>
   </details>;
 }

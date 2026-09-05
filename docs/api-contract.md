@@ -14,7 +14,7 @@ Extra optional state fields: `runtime`, `raw_model_text`, `components`, `timings
 
 The Prototype boundary is `POST /v1/analyze`: multipart image, user_request, scenario_id, mode=action_only. Response contract `lensguard-demo-v1` contains request_id, model, input, output (raw_text, parsed, proposed_action, native_action, diagnostics), provenance, policy, timing. No direct imports cross repositories. Image bytes are not retained in run snapshots or logs.
 
-Transport provenance is real; semantic grounding is unavailable. No inferred region coordinates or verified camera-source claims are created. `attack_success` and corrected navigation `result` remain null in real mode. CONFIRM/WARN are conservatively rendered BLOCKED without claiming attack detection. All actions are simulated.
+Transport provenance is real; semantic grounding is unavailable. No inferred region coordinates or verified camera-source claims are created. `attack_success` and corrected navigation `result` remain null in real mode. CONFIRM/WARN are conservatively rendered as **已阻擋** without claiming attack detection. All actions are simulated.
 
 ## Model schema failures
 
@@ -32,12 +32,18 @@ Explicit Chinese directions are accepted by the Prototype demo adapter: for exam
 
 ## Reservation completeness and editable tasks
 
-In real mode the browser provides an editable request before submission. The reservation request starts empty and **Clear request** empties its draft; navigation and business-card tasks start with their original scenario wording and offer **Use scenario default**. A nonblank request is required. The displayed task is sent in the multipart `user_request` field, and the summary retains the submitted text throughout the run.
+In real mode the browser provides an editable request before submission. The reservation request starts empty and **清除請求** empties its draft; navigation and business-card tasks start with their original scenario wording and offer **使用情境預設**. A nonblank request is required. The displayed task is sent in the multipart `user_request` field, and the summary retains the submitted text throughout the run.
 
-Drafts are retained independently per scenario until the page reloads. Edits discard the prior run and retain the selected image; **Reset** discards the run while preserving the draft. Editing is disabled during submission and inference. None of these controls modify scenario fixtures or implicitly authorize an action. Mock requests remain unchanged.
+Drafts are retained independently per scenario until the page reloads. Edits discard the prior run and retain the selected image; **重設** discards the run while preserving the draft. Editing is disabled during submission and inference. None of these controls modify scenario fixtures or implicitly authorize an action. Mock requests remain unchanged.
 
 `RunState.validation_issues` contains `{argument, kind, message}` entries, where `argument` uses the displayed tool/field path and `kind` is `missing` or `invalid`. Reservation proposals are checked for nonblank restaurant/number/time and a strict positive integer party size. Known placeholder values such as `N/A` are treated as missing. This Demo completeness check also catches `time: "N/A"` when the frozen parser accepts it as a string; original `parsed` and diagnostics remain untouched.
 
-Missing-only proposals terminate with `reservation_details_missing` and display `DETAILS REQUIRED`. Other invalid values use `model_schema_invalid` and a concise field-specific message. The original candidate is display-only, with null policy/outcome and no Guard OFF execution. No number/time defaults, type coercion, fabricated CALL, or guessed reservation data are introduced. Raw parser details, including their original error text, remain under `runtime_metadata.output.diagnostics` rather than being copied into the public error message.
+Missing-only proposals terminate with `reservation_details_missing` and display **需要補充資料**. Other invalid values use `model_schema_invalid` and a concise field-specific message. The original candidate is display-only, with null policy/outcome and no Guard OFF execution. No number/time defaults, type coercion, fabricated CALL, or guessed reservation data are introduced. Raw parser details, including their original error text, remain under `runtime_metadata.output.diagnostics` rather than being copied into the public error message.
 
 Completeness and type validation do not establish semantic grounding: a model can still propose well-typed values absent from the user's request. The existing reservation policy continues to block execution.
+
+## Display language
+
+The Demo UI, scenario descriptions, public errors, authorization explanations and event details use Traditional Chinese (`zh-Hant`). API enum values, identifiers, tool/argument keys and submitted user requests retain their existing contract. The UI translates known field/tool/status labels without modifying their stored values.
+
+Original model/parser content and `runtime_metadata.policy.reason` remain unchanged. Public copies of upstream errors are localized; original transport diagnostics are retained in `runtime_metadata.upstream_error`, and a health error retains its original text in `prototype.raw_error`. Both are available under the collapsed **原始服務錯誤** disclosure, including failures before any model output exists.

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @theme {
-  --font-sans: Inter, "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: Inter, "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 :root { font-family: var(--font-sans); color: #212121; background: #f5f4ef; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; font-size: 16px; }
@@ -88,7 +88,7 @@ p, h1, h2, h3, dl, dd { margin: 0; }
 .disclosure[open] > summary::after { content: '−'; }
 .detail-count { font: 12px var(--font-mono); color: #959595; }
 .technical-statuses { display: flex; flex-wrap: wrap; gap: 20px; font: 13px var(--font-mono); color: #848484; padding-bottom: 22px; }
-.camera-metadata { display: flex; gap: 40px; margin: 0 0 26px; padding: 18px; background: #eeeeee; border-radius: 6px; }
+.camera-metadata { display: flex; flex-wrap: wrap; gap: 40px; margin: 0 0 26px; padding: 18px; background: #eeeeee; border-radius: 6px; }
 .camera-metadata dt { color: #818181; font-size: 12px; }
 .camera-metadata dd { margin-top: 7px; font: 14px var(--font-mono); color: #535353; }
 .technical-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; padding: 4px 0 28px; }
@@ -113,6 +113,7 @@ p, h1, h2, h3, dl, dd { margin: 0; }
 .decision-facts dd { font: 13px/1.6 var(--font-mono); color: #5e5e5e; text-align: right; overflow-wrap: anywhere; }
 .policy-reason { padding-top: 20px; margin-top: 20px; border-top: 1px solid #dddddd; color: #7a7a7a; font-size: 15px; line-height: 1.8; }
 .raw-action pre { margin: 0 0 24px; padding: 24px; background: #ededed; border: 1px solid #dcdcdc; border-radius: 6px; font: 15px/1.8 var(--font-mono); overflow-x: auto; }
+.technical-trace pre { max-width: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .trace-caption { color: #878787; font-size: 14px; margin-bottom: 16px; }
 .trace-canvas { padding: 0 0 24px; overflow-x: auto; }
 .trace-canvas svg { width: 100%; min-width: 950px; display: block; }

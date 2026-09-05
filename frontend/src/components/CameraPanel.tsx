@@ -20,22 +20,22 @@ function cameraError(error: unknown): string {
     switch (error.name) {
       case 'NotAllowedError':
       case 'PermissionDeniedError':
-        return 'Camera permission was denied. Enable camera access in the browser and try again.';
+        return '相機權限遭拒。請在瀏覽器中允許存取相機後再試一次。';
       case 'NotFoundError':
       case 'DevicesNotFoundError':
-        return 'No camera device was detected.';
+        return '未偵測到相機裝置。';
       case 'NotReadableError':
       case 'TrackStartError':
-        return 'The camera is unavailable. Close other apps using it, then try again.';
+        return '目前無法使用相機。請關閉其他正在使用相機的應用程式後再試一次。';
       case 'OverconstrainedError':
-        return 'The selected camera is unavailable. Choose another camera, then try again.';
+        return '無法使用所選相機。請選擇其他相機後再試一次。';
       case 'SecurityError':
-        return 'The browser blocked camera access. Open this demo on localhost or HTTPS and allow camera access.';
+        return '瀏覽器已封鎖相機存取。請使用 localhost 或 HTTPS 開啟展示頁面，並允許相機存取。';
       default:
         break;
     }
   }
-  return 'The camera could not start. Check your browser permissions and connected camera, then try again.';
+  return '無法啟動相機。請確認瀏覽器權限及相機連線後再試一次。';
 }
 
 export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, children, captureRef, realMode = false }: CameraPanelProps) {
@@ -66,12 +66,16 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
     if (uploadedImage) {
       const image = new Image();
       image.src = uploadedImage.url;
-      await image.decode();
+      try {
+        await image.decode();
+      } catch {
+        throw new Error('無法讀取已上傳的圖片。請重新上傳後再試一次。');
+      }
       input = image; width = image.naturalWidth; height = image.naturalHeight;
     } else {
       const video = videoRef.current;
       if (!live || !video || video.readyState < 2 || !video.videoWidth) {
-        throw new Error('Start the camera or upload an image before running real analysis.');
+        throw new Error('請先啟動相機或上傳圖片，再執行實際分析。');
       }
       input = video; width = video.videoWidth; height = video.videoHeight;
     }
@@ -80,10 +84,10 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(width * scale); canvas.height = Math.round(height * scale);
     const context = canvas.getContext('2d');
-    if (!context) throw new Error('The browser could not capture this frame.');
+    if (!context) throw new Error('瀏覽器無法擷取此畫面。');
     context.drawImage(input, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
-      (value) => value ? resolve(value) : reject(new Error('Frame encoding failed.')), 'image/jpeg', 0.9));
+      (value) => value ? resolve(value) : reject(new Error('畫面編碼失敗。')), 'image/jpeg', 0.9));
     return { blob, source: uploadedImage ? 'uploaded_image' : 'camera', captureMs: performance.now() - started };
   } }), [uploadedImage, live]);
 
@@ -165,12 +169,12 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
     setError(null);
 
     if (!window.isSecureContext) {
-      setError('Camera access requires HTTPS or localhost.');
+      setError('使用相機需要透過 HTTPS 或 localhost 開啟頁面。');
       setRequesting(false);
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('This browser does not support camera access. Use a browser with getUserMedia support.');
+      setError('此瀏覽器不支援相機存取。請改用支援相機功能的瀏覽器。');
       setRequesting(false);
       return;
     }
@@ -199,7 +203,7 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
         releaseStream();
         publishLive(false);
         setRequesting(false);
-        setError('The camera stopped or was disconnected. Reconnect it, then select Start Camera.');
+        setError('相機已停止或中斷連線。請重新連接，再點選「啟動相機」。');
         void refreshDevices();
       };
       stream.getVideoTracks().forEach((track) => track.addEventListener('ended', onEnded));
@@ -238,11 +242,11 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
     setImageError(null);
     setUploading(false);
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setImageError('Choose a JPEG, PNG, or WebP image.');
+      setImageError('請選擇 JPEG、PNG 或 WebP 圖片。');
       return;
     }
     if (!file.size || file.size > 10 * 1024 * 1024) {
-      setImageError('Choose a non-empty image smaller than 10 MB.');
+      setImageError('請選擇非空白且小於 10 MB 的圖片檔案。');
       return;
     }
     setUploading(true);
@@ -254,7 +258,7 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
       await preview.decode();
       if (!mountedRef.current || operation !== imageOperationRef.current) return;
       if (preview.naturalWidth * preview.naturalHeight > 40_000_000) {
-        throw new Error('Image dimensions exceed 40 megapixels.');
+        throw new Error('圖片尺寸超過 4,000 萬像素。');
       }
       stopCamera();
       if (imageUrlRef.current) URL.revokeObjectURL(imageUrlRef.current);
@@ -265,7 +269,7 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
       onImageChangeRef.current?.(file.name);
     } catch {
       if (mountedRef.current && operation === imageOperationRef.current) {
-        setImageError('This image could not be opened. Choose a valid JPEG, PNG, or WebP under 40 megapixels.');
+        setImageError('無法開啟此圖片。請選擇有效的 JPEG、PNG 或 WebP 圖片，且尺寸須小於 4,000 萬像素。');
       }
     } finally {
       if (!retained) URL.revokeObjectURL(url);
@@ -274,54 +278,54 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
   }
 
   const idleCamera = !uploadedImage && !live && !requesting && regions.length === 0;
-  const cameraButton = <button type="button" className={`camera-button ${idleCamera ? 'camera-start-button' : ''}`} onClick={() => live || requesting ? stopCamera() : void startCamera(cameraChoice)}>{live || requesting ? 'Stop Camera' : 'Start Camera'}</button>;
+  const cameraButton = <button type="button" className={`camera-button ${idleCamera ? 'camera-start-button' : ''}`} onClick={() => live || requesting ? stopCamera() : void startCamera(cameraChoice)}>{live || requesting ? '停止相機' : '啟動相機'}</button>;
 
   return (
-    <section className="camera-panel" aria-label="Camera and action stage" data-frame-id={frameId}>
+    <section className="camera-panel" aria-label="相機與行動展示區" data-frame-id={frameId}>
       <div className="stage-layout">
         <div className="camera-column">
-          <div className="stage-camera-header"><span>Observation</span><span data-testid="status-camera">CAMERA {live ? 'LIVE' : 'OFF'}</span></div>
+          <div className="stage-camera-header"><span>觀察畫面</span><span data-testid="status-camera">相機 {live ? '使用中' : '已關閉'}</span></div>
           <div className={`camera-viewport${live ? ' camera-viewport--live' : ''}`}>
-            <video ref={videoRef} autoPlay playsInline muted aria-label="Live browser camera feed" />
-            {uploadedImage && <img className="uploaded-image" src={uploadedImage.url} alt={`Uploaded observation: ${uploadedImage.name}`} />}
+            <video ref={videoRef} autoPlay playsInline muted aria-label="瀏覽器相機即時畫面" />
+            {uploadedImage && <img className="uploaded-image" src={uploadedImage.url} alt={`已上傳的觀察圖片：${uploadedImage.name}`} />}
             {!live && !uploadedImage && <div className={`camera-placeholder${regions.length ? ' camera-placeholder--fixture' : ''}`}>
-              <span>{requesting ? 'Waiting for camera' : regions.length ? 'Camera is off · mock scene' : 'Camera is off'}</span>
-              {!regions.length && <p>{requesting ? 'Allow camera access in your browser.' : 'Bring your environment into view.'}</p>}
+              <span>{requesting ? '正在等待相機' : regions.length ? '相機已關閉 · 模擬場景' : '相機已關閉'}</span>
+              {!regions.length && <p>{requesting ? '請在瀏覽器中允許存取相機。' : '將鏡頭對準要觀察的環境。'}</p>}
               {idleCamera && cameraButton}
             </div>}
-            <div className="camera-overlays" aria-label="Mock detected regions">
+            <div className="camera-overlays" aria-label="模擬偵測區域">
               {regions.map((region) => <div key={region.id} className={`camera-region${region.kind === 'instruction_like' ? ' camera-region--instruction' : ''}`}
                 style={{ left: `${region.bbox.x * 100}%`, top: `${region.bbox.y * 100}%`, width: `${region.bbox.width * 100}%`, height: `${region.bbox.height * 100}%` }}
-                title={`${region.id} · ${region.kind} · CAMERA: ${region.text}`}>
-                <span className="camera-region-label">{region.id} · {region.kind === 'instruction_like' ? 'INSTRUCTION' : 'SCENE TEXT'}</span>
+                title={`${region.id} · ${region.kind === 'instruction_like' ? '指令類文字' : '場景文字'} · 相機：${region.text}`}>
+                <span className="camera-region-label">{region.id} · {region.kind === 'instruction_like' ? '指令' : '場景文字'}</span>
                 <span className="camera-region-text">{region.text}</span>
               </div>)}
             </div>
           </div>
           <div className="camera-controls">
             {!idleCamera && cameraButton}
-            <input ref={fileRef} className="image-file-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload observation image" onChange={(event) => {
+            <input ref={fileRef} className="image-file-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="上傳觀察圖片" onChange={(event) => {
               const file = event.target.files?.[0];
               event.target.value = '';
               if (file) void uploadImage(file);
             }} />
-            <button type="button" className="camera-button" disabled={uploading} onClick={() => fileRef.current?.click()}>{uploading ? 'Opening image…' : uploadedImage ? 'Replace Image' : 'Upload Image'}</button>
-            {uploadedImage && <button type="button" className="camera-button" onClick={clearImage}>Remove Image</button>}
-            {(supportsFacing || devices.length > 1) && <select aria-label="Select camera" value={cameraChoice} onChange={(event) => {
+            <button type="button" className="camera-button" disabled={uploading} onClick={() => fileRef.current?.click()}>{uploading ? '正在開啟圖片…' : uploadedImage ? '更換圖片' : '上傳圖片'}</button>
+            {uploadedImage && <button type="button" className="camera-button" onClick={clearImage}>移除圖片</button>}
+            {(supportsFacing || devices.length > 1) && <select aria-label="選擇相機" value={cameraChoice} onChange={(event) => {
               const choice = event.target.value; setCameraChoice(choice);
               if (live || requesting) void startCamera(choice);
             }}>
-              {supportsFacing ? <><option value="environment">Back camera (preferred)</option><option value="user">Front camera (preferred)</option></> : <option value="environment">Default camera</option>}
-              {devices.map((device, index) => <option key={device.deviceId} value={`device:${device.deviceId}`}>{device.label || `Camera ${index + 1}`}</option>)}
+              {supportsFacing ? <><option value="environment">後置相機（優先）</option><option value="user">前置相機（優先）</option></> : <option value="environment">預設相機</option>}
+              {devices.map((device, index) => <option key={device.deviceId} value={`device:${device.deviceId}`}>{device.label || `相機 ${index + 1}`}</option>)}
             </select>}
           </div>
-          {uploadedImage && <p className="image-filename" title={uploadedImage.name}>IMAGE · {uploadedImage.name}</p>}
+          {uploadedImage && <p className="image-filename" title={uploadedImage.name}>圖片 · {uploadedImage.name}</p>}
           {imageError && <p role="alert" className="camera-error">{imageError}</p>}
           {error && <p role="alert" className="camera-error">{error}</p>}
         </div>
         {children}
       </div>
-      <p className="camera-disclosure">{realMode ? 'One image is sent to the local VLM only when Run Analysis is clicked · execution is simulated' : uploadedImage ? 'Uploaded image stays in this browser · analysis uses the selected mock scenario' : 'Mock regions · camera frames stay in this browser'}</p>
+      <p className="camera-disclosure">{realMode ? '點選「開始分析」時，才會將一張圖片傳送至本機視覺語言模型 · 行動採模擬執行' : uploadedImage ? '上傳的圖片僅保留在此瀏覽器 · 分析使用所選的模擬情境' : '模擬區域 · 相機畫面僅保留在此瀏覽器'}</p>
     </section>
   );
 }
