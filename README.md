@@ -1,5 +1,8 @@
 # LensGuard｜視覺 AI 助理的行動授權防護
 
+> 📌 **先看技術文件：** [LensGuard_Paper.pdf](Technical%20documents/LensGuard_Paper.pdf)<br>
+> 想先了解這個 Demo 的背景與設計方向，可從這份 PDF 開始。
+
 ## 問題與目標
 
 當 AI 助理透過相機閱讀招牌、名片與路標，畫面中的文字也可能夾帶「忽略使用者、改打另一支電話」等指令。若助理直接照做，外部環境便能改變使用者原本授權的行動。
