@@ -33,7 +33,7 @@ function Architecture({ realMode }: { realMode: boolean }) {
       <section><h2>Current implementation</h2><dl className="component-statuses">
         {[['Camera', 'LIVE'], ['UI', 'LIVE'], ['Backend orchestration', 'LIVE'], ['VLM inference', realMode ? 'LOCAL' : 'MOCK'], ['Provenance extraction', realMode ? 'TRANSPORT ONLY' : 'MOCK'], ['Policy engine', realMode ? 'DETERMINISTIC' : 'MOCK']].map(([name, state]) => <div key={name}><dt>{name}</dt><dd>{state}</dd></div>)}
       </dl></section>
-      <section><h2>Local runtime integration</h2><p>Real mode sends one camera snapshot or uploaded image through Demo FastAPI to the independent Prototype runtime. Gemma 3 4B uses the existing action-only adapter and parser.</p><p>Transport lineage is recorded. Semantic region grounding is not available. The deterministic gate withholds unconfirmed actions; a scoped business-card delegation rule permits a simulated call. Mock mode remains explicitly selectable.</p><p className="implementation-note">All external actions are simulated. This live demo is not a Phase 3.6 benchmark result.</p></section>
+      <section><h2>Local runtime integration</h2><p>Real mode sends one camera snapshot or uploaded image through Demo FastAPI to the independent Prototype runtime. Qwen3-VL 8B uses the existing action-only adapter and parser.</p><p>Transport lineage is recorded. Semantic region grounding is not available. The deterministic gate withholds unconfirmed actions; a scoped business-card delegation rule permits a simulated call. Mock mode remains explicitly selectable.</p><p className="implementation-note">All external actions are simulated. This live demo is not a Phase 3.6 benchmark result.</p></section>
     </div>
   </section>;
 }
@@ -74,12 +74,17 @@ export default function App() {
             {demo.scenarios.map((scenario, index) => <option key={scenario.id} value={scenario.id}>{String.fromCharCode(65 + index)} · {scenario.name}</option>)}
           </select></div>
           <div className="guard-control"><span id="guard-label">LensGuard</span><button type="button" className="guard-switch" role="switch" aria-checked={demo.guardEnabled} aria-labelledby="guard-label" onClick={demo.toggleGuard} disabled={demo.active}><span className="switch-track"><span /></span><strong>{demo.guardEnabled ? 'ON' : 'OFF'}</strong></button></div>
-          <div className="run-controls"><button className="button button-primary" onClick={() => void demo.startRun(() => { if (!captureRef.current) throw new Error('Camera capture is unavailable.'); return captureRef.current.capture(); })} disabled={demo.active || !demo.connected || !demo.scenario}>{demo.active ? 'Analyzing…' : 'Run Analysis'}<span aria-hidden="true">→</span></button><button className="button button-secondary" onClick={demo.reset}>Reset</button></div>
+          <div className="run-controls"><button className="button button-primary" onClick={() => void demo.startRun(() => { if (!captureRef.current) throw new Error('Camera capture is unavailable.'); return captureRef.current.capture(); })} disabled={demo.active || !demo.connected || !demo.scenario || (realMode && !demo.userRequest.trim())}>{demo.active ? 'Analyzing…' : 'Run Analysis'}<span aria-hidden="true">→</span></button><button className="button button-secondary" onClick={demo.reset}>Reset</button></div>
         </section>
+        {realMode && <section className="request-editor" aria-label="Edit user request">
+          <div className="request-editor-heading"><label htmlFor="user-request-input">Your request</label><button type="button" onClick={demo.restoreUserRequest} disabled={demo.active || !demo.scenario || !demo.userRequestEdited}>{demo.scenarioId === 'reservation-injection' ? 'Clear request' : 'Use scenario default'}</button></div>
+          <textarea id="user-request-input" value={demo.userRequest} onChange={(event) => demo.editUserRequest(event.target.value)} disabled={demo.active || !demo.scenario} rows={2} maxLength={4000} aria-describedby="user-request-help" aria-invalid={!!demo.scenario && !demo.userRequest.trim()} placeholder="Tell the model what you want it to do." />
+          <p id="user-request-help">{!demo.userRequest.trim() && demo.scenario ? 'Enter a request before running analysis. ' : ''}{demo.scenarioId === 'reservation-injection' ? 'For a reservation, include the date, time, and number of people. To request only a call, say so explicitly.' : 'Describe what you want done with the image. Your request is sent when you run analysis.'}</p>
+        </section>}
         <CameraPanel captureRef={captureRef} realMode={realMode} regions={demo.run?.regions || []} frameId={demo.run?.frame_id || null} onLiveChange={setCameraLive} onImageChange={(name) => { setImageName(name); demo.reset(); }}>
-          <RunSummary run={demo.run} scenario={demo.scenario} active={demo.active} />
+          <RunSummary run={demo.run} scenario={demo.scenario} userRequest={demo.displayedUserRequest} active={demo.active} />
         </CameraPanel>
-        <div className="stage-note"><span>{realMode ? 'LOCAL VLM · ' + (demo.health?.prototype?.status || 'UNAVAILABLE').toUpperCase() : 'Camera or uploaded image. Mock inference.'} · Simulated actions.</span><span>{realMode ? 'Semantic grounding unavailable' : 'Phase 3.6 model integration pending'}</span></div>
+        <div className="stage-note"><span>{realMode ? (demo.health?.prototype?.model_profile || 'LOCAL VLM') + ' · ' + (demo.health?.prototype?.status || 'UNAVAILABLE').toUpperCase() : 'Camera or uploaded image. Mock inference.'} · Simulated actions.</span><span>{realMode ? 'Semantic grounding unavailable' : 'Phase 3.6 model integration pending'}</span></div>
         <section className="technical-details" aria-label="Expandable research details">
           <DecisionTrace realMode={realMode} run={demo.run} />
           <details className="disclosure technical-trace">

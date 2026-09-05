@@ -3,7 +3,9 @@ import type { RunState } from '../types';
 export function ProposalPanel({ run, realMode = false }: { run: RunState | null; realMode?: boolean }) {
   const action = run?.action;
   let status = 'AWAITING ANALYSIS';
-  if (action?.validation_status === 'invalid') {
+  if (run?.error_code === 'reservation_details_missing') {
+    status = 'DETAILS REQUIRED';
+  } else if (action?.validation_status === 'invalid') {
     status = run?.error_code === 'model_action_invalid' ? 'INVALID ACTION' : 'INVALID ACTION SCHEMA';
   } else if (action) {
     status = action.status === 'proposed'

@@ -7,7 +7,7 @@ The world does not automatically get authority over the AI.
 
 This repository contains a working research demonstration of the boundary between **what a camera observes**, **what a model proposes**, and **what an authorization layer permits**. It illustrates physical prompt injection through structured action provenance: environmental content can provide useful information without automatically gaining authority over a sensitive action argument.
 
-**Current stage:** live local Gemma 3 4B integration + explicit mock mode.
+**Current stage:** live local Qwen3-VL 8B integration + explicit mock mode.
 **Not integrated:** automatic semantic region grounding and Phase 3.6 evaluation results.
 
 The camera, UI, FastAPI, and SSE pipeline are live. In `LENSGUARD_RUNTIME=prototype`, one image is sent on Run Analysis to the independent Prototype service, which reuses its frozen action-only model adapter and parser. The deterministic authorization gate is real; its conservative limitations are described below. In `mock` mode, fixtures supply results and images remain in the browser. All external actions remain simulated.
@@ -30,13 +30,13 @@ Browser Camera / Uploaded Image
               ↓ one snapshot, HTTPS multipart
 Demo React → Demo FastAPI → Prototype Runtime (loopback HTTP)
               ↑ SSE                ↓
-              └──────────── Gemma 3 4B → LensGuard → Simulated Action
+              └──────────── Qwen3-VL 8B → LensGuard → Simulated Action
 ```
 
 | Component | Prototype mode | Mock mode |
 | --- | --- | --- |
 | Camera / UI / REST / SSE | Live | Live |
-| VLM | Real resident local Gemma 3 4B | Scenario fixture |
+| VLM | Real resident local Qwen3-VL 8B | Scenario fixture |
 | Provenance | Actual input/model transport lineage; semantic grounding unavailable | Fixture lineage |
 | Policy | Prototype deterministic thin gate + scoped demo delegation | Fixture-based policy |
 | Action sink | Simulated | Simulated |
@@ -171,7 +171,7 @@ If installing a development CA is impractical, use a trusted HTTPS tunnel or a r
 
 ## Docker Compose
 
-The base `docker-compose.yml` runs **mock mode**. For real Gemma inference, follow [Docker and real mode](#docker-and-real-mode) to start the host Prototype service and enable `docker-compose.live.yml`. Changing `backend/.env` does not configure Docker: that file is neither copied into the backend image nor passed to Compose. Persist the live override with `COMPOSE_FILE` in the repository-root `.env` as shown below.
+The base `docker-compose.yml` runs **mock mode**. For real Qwen inference, follow [Docker and real mode](#docker-and-real-mode) to start the host Prototype service and enable `docker-compose.live.yml`. Changing `backend/.env` does not configure Docker: that file is neither copied into the backend image nor passed to Compose. Persist the live override with `COMPOSE_FILE` in the repository-root `.env` as shown below.
 
 Docker uses HTTPS by default. Generate and trust the local certificates before the first startup, following the [HTTPS setup](#https-for-camera-access), then run from the repository root:
 
@@ -288,9 +288,9 @@ The Prototype repository remains the runtime source of truth. The Demo never imp
 
 ### Prerequisites and GPU safety
 
-Use the existing `/home/tyc4d/venvs/lensguard-vlm` environment on this server: PyTorch `2.10.0+cu128`, Transformers `5.16.1`, BF16 Gemma `google/gemma-3-4b-it` at the Prototype's frozen revision. Do not reinstall CUDA, update the model stack, change revisions, clear caches, or use `pip install -e .` in the Prototype.
+Use the existing `/home/tyc4d/venvs/lensguard-vlm` environment on this server: PyTorch `2.10.0+cu128`, Transformers `5.16.1`, BF16 Qwen `Qwen/Qwen3-VL-8B-Instruct` at the Prototype's frozen revision. Do not reinstall CUDA, update the model stack, change revisions, clear caches, or use `pip install -e .` in the Prototype.
 
-Before startup inspect `nvidia-smi` and running experiment command lines. Phase 3.6 takes priority: never kill, pause, restart, or renice it. The service refuses a new load when another compute process is active or free VRAM is below 14,000 MiB. Resident requests require 4,096 MiB free and no other compute process. These are conservative reserves, not guaranteed peak estimates. Observed demo resident GPU use was approximately 9 GiB. Do not keep another VLM family resident. Preflight is a point-in-time check; coordinate experiment scheduling.
+Before startup inspect `nvidia-smi` and running experiment command lines. Phase 3.6 takes priority: never kill, pause, restart, or renice it. The service refuses a new load when another compute process is active or free VRAM is below 21,000 MiB. Resident requests require 4,096 MiB free and no other compute process. These are conservative reserves, not guaranteed peak estimates. Observed demo resident GPU use was approximately 17.1 GiB with Qwen. Do not keep another VLM family resident. Preflight is a point-in-time check; coordinate experiment scheduling.
 
 The service's web-only dependencies are separate from model packages. On the known verified environment, install only the missing transport packages (no dependency/model upgrades):
 
@@ -311,7 +311,7 @@ Use three terminals. Do not start duplicate runtimes; first inspect `curl http:/
 ```bash
 cd /home/tyc4d/FM26-LensGuard-Prototype
 source /home/tyc4d/venvs/lensguard-vlm/bin/activate
-python -m prototype_demo_server --model gemma3-4b --host 127.0.0.1 --port 8010
+python -m prototype_demo_server --model qwen3vl-8b --host 127.0.0.1 --port 8010
 ```
 
 2. Demo backend (stop your previous **Demo backend only** if port 8000 is occupied):
@@ -334,7 +334,11 @@ VITE_HTTPS=true VITE_API_BASE_URL=/api npm run dev -- --host 0.0.0.0
 
 Open `https://localhost:5173` or `https://<LAN-IP>:5173`. The visiting device must trust the mkcert CA and the certificate must cover that address. Camera access on a physical device has to be granted there. The browser only contacts the HTTPS frontend; Vite proxies REST/SSE to the Demo and the Demo contacts the loopback Prototype.
 
-Choose a scenario, start the camera or upload a scene image, then click Run Analysis. The scenario supplies the trusted user task, never the real model answer or environmental text. Raw model output, measured timings, and lineage are in expandable technical details. WebP uploads are converted to JPEG by the browser. Snapshot longest edge is bounded to 2560 pixels with JPEG quality 0.9; there is no continuous frame streaming.
+Choose a scenario, enter **Your request**, start the camera or upload a scene image, then click Run Analysis. In real mode, the reservation request starts empty; navigation and business-card tasks retain their original defaults. For a complete reservation, provide the intended date/time and party size; if you only want to call the restaurant, say that explicitly. Analysis requires a nonblank request, and the displayed task is sent to the model.
+
+Editing clears the prior run while keeping the image, and drafts are retained per scenario until the page reloads. **Clear request** empties the reservation draft. **Use scenario default** restores the original wording for navigation and business-card tasks. Request editing is disabled during analysis; **Reset** clears the run while retaining the draft. Mock mode continues to use its fixed tasks.
+
+The scenario never supplies the real model answer or environmental text. Raw model output, measured timings, and lineage are in expandable technical details. WebP uploads are converted to JPEG by the browser. Snapshot longest edge is bounded to 2560 pixels with JPEG quality 0.9; there is no continuous frame streaming.
 
 Optional one-time warmup, **only when experiments are not competing for the GPU**:
 
@@ -361,8 +365,9 @@ The exact trusted task `幫我撥打這張名片上的電話` grants a narrow de
 - GPU busy or OOM: leave experiments untouched, wait for an agreed GPU window; do not switch models silently.
 - Timeout: Demo defaults to 180 seconds (`INFERENCE_TIMEOUT_SECONDS`); a timed-out GPU request may still finish on the Prototype. Check health before retrying. Reset detaches the UI; it does not interrupt a model generation.
 - Parse failure: raw output remains visible, with no structured action or execution fabricated. The existing parser may accept JSON fences; no new repair/retry parser is introduced.
+- `DETAILS REQUIRED`: the reservation proposal is missing required values, such as time or party size. Check **Your request**, supply the needed details, and run again. The Demo never fills missing values with defaults; raw `N/A` values remain visible, and field-specific issues identify what to correct. Full parser errors stay in the expandable diagnostics. These checks validate completeness and types; they do not establish that model-proposed values came from your request or image. Reservation execution remains blocked by the existing policy.
 - Policy unavailable: automatic execution is withheld. Ground truth fixtures never authorize real results.
-- Low text resolution: fill the camera frame with readable scene text; preprocessing remains the Prototype's native Gemma processor.
+- Low text resolution: fill the camera frame with readable scene text; preprocessing remains the Prototype's native Qwen processor.
 
 ### Docker and real mode
 
@@ -380,7 +385,7 @@ systemctl --user enable --now lensguard-prototype.service
 systemctl --user status lensguard-prototype.service
 ```
 
-Skip link creation if the unit is already installed. Enabling a user service starts it with the user manager, normally at login; this setup does not enable lingering or promise startup at boot without login. Its lifetime follows the user manager. The service listens only on `127.0.0.1:8010` and loads Gemma lazily on the first image or warmup request. The existing GPU preflight still applies.
+Skip link creation if the unit is already installed. Enabling a user service starts it with the user manager, normally at login; this setup does not enable lingering or promise startup at boot without login. Its lifetime follows the user manager. The service listens only on `127.0.0.1:8010` and loads Qwen lazily on the first image or warmup request. The existing GPU preflight still applies.
 
 Generate certificates using the [HTTPS setup](#https-for-camera-access), then add or update these settings in the **repository-root `.env`**:
 
@@ -396,7 +401,7 @@ docker compose up --build -d
 curl http://localhost:8000/api/health
 ```
 
-Confirm `runtime` is `prototype`. The nested `prototype.status` should be `unloaded` before the first inference or `ready` after successful inference, with no upstream error; `prototype.model_loaded` indicates whether the model is resident. A Docker `healthy` label or HTTP 200 alone does not establish a connection to Gemma. `prototype.status: unavailable` means the upstream service cannot be reached; the Demo never falls back to mock mode automatically.
+Confirm `runtime` is `prototype`. The nested `prototype.status` should be `unloaded` before the first inference or `ready` after successful inference, with no upstream error; `prototype.model_loaded` indicates whether the model is resident. A Docker `healthy` label or HTTP 200 alone does not establish a connection to Qwen. `prototype.status: unavailable` means the upstream service cannot be reached; the Demo never falls back to mock mode automatically.
 
 To select the override for a single command without persisting `COMPOSE_FILE`:
 

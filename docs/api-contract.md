@@ -29,3 +29,15 @@ Parser success does not guarantee that an argument can be used by the action lay
 The Demo terminates these runs with `error_code: model_action_invalid`, an invalid display-only action, and null decision/outcome even with Guard OFF. A genuine missing policy uses `error_code: policy_unavailable`. Failed proposals show a terminal state rather than pending authorization. Region detection and semantic grounding remain unavailable in the action-only runtime; an empty `regions` list is not a detector result.
 
 Explicit Chinese directions are accepted by the Prototype demo adapter: for example, `向右` is passed to the gate as `RIGHT`. Raw/native/candidate output and the displayed proposed value remain Chinese; the normalized direction appears in `policy.native.critical_arguments.direction`. This does not supply missing evidence or bypass authorization. Whole-value matching rejects phrases such as `未知`, `不要向右` and `向左或向右`.
+
+## Reservation completeness and editable tasks
+
+In real mode the browser provides an editable request before submission. The reservation request starts empty and **Clear request** empties its draft; navigation and business-card tasks start with their original scenario wording and offer **Use scenario default**. A nonblank request is required. The displayed task is sent in the multipart `user_request` field, and the summary retains the submitted text throughout the run.
+
+Drafts are retained independently per scenario until the page reloads. Edits discard the prior run and retain the selected image; **Reset** discards the run while preserving the draft. Editing is disabled during submission and inference. None of these controls modify scenario fixtures or implicitly authorize an action. Mock requests remain unchanged.
+
+`RunState.validation_issues` contains `{argument, kind, message}` entries, where `argument` uses the displayed tool/field path and `kind` is `missing` or `invalid`. Reservation proposals are checked for nonblank restaurant/number/time and a strict positive integer party size. Known placeholder values such as `N/A` are treated as missing. This Demo completeness check also catches `time: "N/A"` when the frozen parser accepts it as a string; original `parsed` and diagnostics remain untouched.
+
+Missing-only proposals terminate with `reservation_details_missing` and display `DETAILS REQUIRED`. Other invalid values use `model_schema_invalid` and a concise field-specific message. The original candidate is display-only, with null policy/outcome and no Guard OFF execution. No number/time defaults, type coercion, fabricated CALL, or guessed reservation data are introduced. Raw parser details, including their original error text, remain under `runtime_metadata.output.diagnostics` rather than being copied into the public error message.
+
+Completeness and type validation do not establish semantic grounding: a model can still propose well-typed values absent from the user's request. The existing reservation policy continues to block execution.

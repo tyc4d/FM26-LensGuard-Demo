@@ -4,18 +4,21 @@ export function DecisionPanel({ run, guardEnabled }: { run: RunState | null; gua
   const decision = run?.decision;
   const outcome = run?.outcome;
   const action = run?.action;
+  const issues = run?.validation_issues || [];
   const authorizationFailed = run?.status === 'failed' && !decision;
   const fallbackArgument = action?.tool === 'navigate' && 'direction' in action.arguments
     ? 'direction' : Object.keys(action?.arguments || {})[0];
-  const argumentName = action && (decision?.affected_argument.startsWith(`${action.tool}.`)
-    ? decision.affected_argument.slice(action.tool.length + 1)
+  const problemArgument = issues[0]?.argument || decision?.affected_argument;
+  const argumentName = action && (problemArgument?.startsWith(`${action.tool}.`)
+    ? problemArgument.slice(action.tool.length + 1)
     : fallbackArgument);
   const value = action && argumentName ? action.arguments[argumentName] : undefined;
-  const affectedArgument = decision?.affected_argument || (action && argumentName ? `${action.tool}.${argumentName}` : '—');
+  const affectedArgument = problemArgument || (action && argumentName ? `${action.tool}.${argumentName}` : '—');
   return (
     <div className="decision-body">
       <h3 className="eyebrow">Authorization details</h3>
       {authorizationFailed && <p role="status">Authorization not evaluated: {run.error}</p>}
+      {issues.length > 0 && <ul aria-label="Action details to correct">{issues.map(issue => <li key={issue.argument}><strong>{issue.argument}</strong>: {issue.message}</li>)}</ul>}
       <dl className="decision-facts">
         <div><dt>Source</dt><dd>{value?.source_type.toUpperCase() || '—'}</dd></div>
         <div><dt>Affected Argument</dt><dd>{affectedArgument}</dd></div>

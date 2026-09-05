@@ -45,6 +45,7 @@ for (const source of ['camera', 'uploaded_image']) {
       } });
     });
     await page.goto('/');
+    await page.getByRole('textbox', { name: 'Your request' }).fill('幫我打電話訂這間餐廳');
     await expect(page.getByRole('button', { name: 'Run Analysis' })).toBeEnabled();
     if (source === 'camera') {
       await page.getByRole('button', { name: 'Start Camera', exact: true }).click();
@@ -73,6 +74,7 @@ test('real mode cannot run with no image and never posts mock JSON', async ({ pa
   let posts = 0;
   page.on('request', request => { if (request.method() === 'POST') posts++; });
   await page.goto('/');
+  await page.getByRole('textbox', { name: 'Your request' }).fill('幫我打電話訂這間餐廳');
   await page.getByRole('button', { name: 'Run Analysis' }).click();
   await expect(page.getByRole('alert')).toContainText('Start the camera or upload an image');
   expect(posts).toBe(0);
@@ -87,6 +89,7 @@ test('schema-invalid reservation ends SSE and shows candidate instead of waiting
   await page.route('**/api/run', route=>route.fulfill({status:202,json:initial}));
   await page.route('**/api/run/invalid-reservation/events', route=>route.fulfill({contentType:'text/event-stream',body:`event: runtime\nid: invalid-reservation:1\ndata: ${JSON.stringify(terminal)}\n\n`}));
   await page.goto('/');
+  await page.getByRole('textbox', { name: 'Your request' }).fill('幫我打電話訂這間餐廳');
   const bytes=await page.evaluate(()=>document.createElement('canvas').toDataURL('image/png').split(',')[1]);
   await page.getByLabel('Upload observation image').setInputFiles({name:'scene.png',mimeType:'image/png',buffer:Buffer.from(bytes,'base64')});
   await page.getByRole('img',{name:'Uploaded observation: scene.png'}).waitFor();
@@ -121,6 +124,7 @@ test('policy failure replaces pending authorization with a terminal result', asy
     await route.fulfill({ contentType: 'text/event-stream', body: `event: runtime\nid: ${initial.id}:1\ndata: ${JSON.stringify(terminal)}\n\n` });
   });
   await page.goto('/');
+  await page.getByRole('textbox', { name: 'Your request' }).fill('幫我打電話訂這間餐廳');
   await uploadObservation(page);
   await page.getByText('Show technical trace', { exact: true }).click();
   await page.getByRole('button', { name: 'Run Analysis' }).click();

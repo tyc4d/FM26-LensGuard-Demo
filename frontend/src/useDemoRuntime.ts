@@ -6,6 +6,8 @@ export function useDemoRuntime() {
   const [health, setHealth] = useState<Health | null>(null);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [scenarioId, setScenarioId] = useState('reservation-injection');
+  const [userRequestDrafts, setUserRequestDrafts] = useState<Record<string, string>>({});
+  const [submittedUserRequest, setSubmittedUserRequest] = useState<string | null>(null);
   const [guardEnabled, setGuardEnabled] = useState(true);
   const [connected, setConnected] = useState(false);
   const [run, setRun] = useState<RunState | null>(null);
@@ -19,6 +21,11 @@ export function useDemoRuntime() {
   const browserStarted = useRef(0);
   const uploadRoundtrip = useRef(0);
   const requestPending = useRef(false);
+  const scenario = scenarios.find((item) => item.id === scenarioId);
+  const defaultUserRequest = scenarioId === 'reservation-injection' ? '' : scenario?.user_request ?? '';
+  const userRequest = health?.runtime === 'prototype'
+    ? userRequestDrafts[scenarioId] ?? defaultUserRequest
+    : scenario?.user_request ?? '';
 
   const applyState = useCallback((state: RunState) => {
     // A health recovery request can arrive after a more recent SSE snapshot.
@@ -43,6 +50,7 @@ export function useDemoRuntime() {
     currentRun.current = null;
     requestPending.current = false;
     setRun(null);
+    setSubmittedUserRequest(null);
     setStarting(false);
     setError(null);
   }, []);
@@ -106,12 +114,15 @@ export function useDemoRuntime() {
       uploadRoundtrip.current = 0;
       let frame: CapturedFrame | undefined;
       if (health?.runtime === 'prototype') {
+        if (!userRequest.trim()) throw new Error('Enter a user request before running analysis.');
+        if (userRequest.length > 4000) throw new Error('Keep the user request within 4000 characters.');
         if (!capture) throw new Error('Camera capture is unavailable.');
+        setSubmittedUserRequest(userRequest);
         frame = await capture();
       }
       if (!mounted.current || version !== generation.current) return;
       const uploadStarted = performance.now();
-      const initial = await api.run(scenarioId, guardEnabled, scenarios.find(item => item.id === scenarioId)?.user_request, frame);
+      const initial = await api.run(scenarioId, guardEnabled, userRequest, frame);
       if (!mounted.current || version !== generation.current) return;
       uploadRoundtrip.current = performance.now() - uploadStarted;
       applyState(initial);
@@ -151,13 +162,29 @@ export function useDemoRuntime() {
         setStarting(false);
       }
     }
-  }, [applyState, connected, guardEnabled, reset, scenarioId, health, scenarios]);
+  }, [applyState, connected, guardEnabled, reset, scenarioId, health, userRequest]);
 
   const active = starting || run?.status === 'running';
   return {
-    scenarios, scenario: scenarios.find((item) => item.id === scenarioId), scenarioId,
+    scenarios, scenario, scenarioId, userRequest,
+    displayedUserRequest: submittedUserRequest ?? userRequest,
+    userRequestEdited: userRequest !== defaultUserRequest,
     guardEnabled, connected, run, active, error, health,
     startRun, reset,
+    editUserRequest: (value: string) => {
+      if (health?.runtime !== 'prototype' || !scenario || requestPending.current || currentRun.current?.status === 'running') return;
+      reset();
+      setUserRequestDrafts((drafts) => ({ ...drafts, [scenarioId]: value }));
+    },
+    restoreUserRequest: () => {
+      if (health?.runtime !== 'prototype' || !scenario || requestPending.current || currentRun.current?.status === 'running') return;
+      reset();
+      setUserRequestDrafts((drafts) => {
+        const remaining = { ...drafts };
+        delete remaining[scenarioId];
+        return remaining;
+      });
+    },
     selectScenario: (id: string) => { if (!active) { reset(); setScenarioId(id); } },
     toggleGuard: () => { if (!active) { reset(); setGuardEnabled((value) => !value); } },
   };

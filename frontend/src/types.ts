@@ -79,6 +79,7 @@ export interface RunOutcome {
 export interface RunState {
   runtime?: 'mock' | 'prototype';
   error_code?: string | null;
+  validation_issues?: Array<{ argument: string; kind: 'missing' | 'invalid'; message: string }>;
   raw_model_text?: string | null;
   timings?: Record<string, number>;
   components?: Record<string, string>;
@@ -104,7 +105,7 @@ export interface Health {
   status: 'ok';
   runtime: 'mock' | 'prototype';
   model: string;
-  prototype?: { status: string; model_loaded: boolean; error?: string | null } | null;
+  prototype?: { model_profile?: string; status: string; model_loaded: boolean; error?: string | null } | null;
 }
 
 export interface CapturedFrame { blob: Blob; source: "camera" | "uploaded_image"; captureMs: number }

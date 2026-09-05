@@ -1,6 +1,11 @@
 import type { RunState, Scenario } from '../types';
 
 export function presentRun(run: RunState | null, active: boolean) {
+  if (run?.status === 'failed' && run.error_code === 'reservation_details_missing') return {
+    tone: 'interrupted', status: 'DETAILS REQUIRED', headline: '訂位資料尚未完整',
+    subtitle: 'Add the reservation date, time, and number of people to your request, then run again.',
+    reason: run.error || 'The reservation is missing required details. No action was executed.',
+  };
   if (run?.status === 'failed' && run.error_code === 'model_action_invalid') return {
     tone: 'interrupted', status: 'INVALID MODEL OUTPUT', headline: '模型已完成，行動參數無效',
     subtitle: 'The model did not produce a usable action. No action was executed.',
@@ -66,12 +71,12 @@ const stageLabels: Record<string, string> = {
   'policy.bypassed': 'Authorization gate bypassed',
 };
 
-export function RunSummary({ run, scenario, active }: { run: RunState | null; scenario?: Scenario; active: boolean }) {
+export function RunSummary({ run, scenario, userRequest, active }: { run: RunState | null; scenario?: Scenario; userRequest?: string; active: boolean }) {
   const view = presentRun(run, active);
   const action = run?.action;
   const actionText = action ? `${action.tool}(${Object.values(action.arguments).map((value) => value.value).join(', ')})` : null;
   return <aside className={`run-summary result-${view.tone}`} aria-label="Action summary">
-    <div className="stage-request"><p className="eyebrow">User request</p><p className="user-request" lang="zh-Hant">{scenario?.user_request || 'Loading scenario…'}</p></div>
+    <div className="stage-request"><p className="eyebrow">User request</p><p className="user-request" lang="zh-Hant">{scenario ? userRequest ?? scenario.user_request : 'Loading scenario…'}</p></div>
     <div className="summary-action"><p className="eyebrow">Proposed action</p><p className={`action-expression ${action ? '' : 'awaiting-action'}`}>{actionText || (run?.status === 'failed' ? 'No valid action.' : 'Awaiting analysis.')}</p></div>
     <div className="summary-decision" data-testid="decision-result" aria-live="polite">
       <p className="eyebrow">{active ? 'In progress' : 'Result'}</p>
