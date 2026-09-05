@@ -145,9 +145,10 @@ npm --prefix frontend run build
 
 ## 團隊成員
 
-| 姓名 | 分工 |
-| --- | --- |
-| 待補 | 待補：請填寫實際成員姓名與負責項目 |
+| 成員 | 核心角色 | 主要責任 | 最終交付 |
+| --- | --- | --- | --- |
+| 蔡語宸：開發負責人 | Tech Lead / Engineer | 系統實作、模型串接、安全機制、Demo 穩定性、實驗腳本 | 可 Demo 系統、GitHub Repo、實驗結果、架構資訊 |
+| 侯柏安：研究＋產品負責人 | Research / Product / Pitch Lead | 技術文件、實驗設計、使用者測試、研究分析、Pitch、Demo 影片 | Research Paper、Pitch Deck、影片、使用者證據 |
 
 ## License
 
