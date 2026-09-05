@@ -50,7 +50,7 @@ flowchart TD
 | 後端 | Python 3.12、FastAPI、Pydantic、HTTPX、SSE | 型別驗證、Prototype HTTP 轉接、狀態串流與模擬動作 |
 | 資料儲存 | 記憶體 RunStore、JSON fixtures | 暫存執行結果與提供固定示範情境；無資料庫 |
 | 部署與測試 | Docker Compose、nginx、mkcert、pytest、Playwright | 容器部署、HTTPS 與自動化回歸測試 |
-| Sponsor 技術 | 待團隊補充 | 尚未提供黑客松指定 Sponsor 技術使用資訊 |
+| Sponsor 技術 | OpenAI、ElevenLabs | 專案開發、影片配樂 |
 
 ## 安裝與執行
 
