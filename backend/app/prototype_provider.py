@@ -36,6 +36,7 @@ class RemoteOutput(BaseModel):
     native_action: dict[str, Any] | None = None
     candidate_action: dict[str, Any] | None = None
     diagnostics: dict[str, Any] = {}
+    validation_error: str | None = None
 
 
 class RemoteResponse(BaseModel):
@@ -90,7 +91,7 @@ class PrototypeRuntimeProvider:
 
     def map_action(self, response, run_id, *, candidate=False):
         output = response.output
-        raw = output.candidate_action if candidate else (output.proposed_action or output.native_action)
+        raw = (output.candidate_action or output.native_action or output.proposed_action) if candidate else (output.proposed_action or output.native_action)
         if not raw:
             raise RuntimeFailure('Model output could not be parsed. Raw model text is available in technical details.', 'model_output_parse_failed')
         tools = {'CALL': 'call_phone', 'RESTAURANT_RESERVATION': 'restaurant_reservation',
@@ -128,6 +129,15 @@ class PrototypeRuntimeProvider:
         state.timings['prototype_request_ms'] = request_ms
         state.components['vlm'] = 'live'
         await publish('inference.completed', 'Real local model response received.')
+        if response.output.validation_error is not None:
+            # Parsing succeeded, but the Prototype's action normalizer rejected
+            # a value (for example an unknown direction). Preserve it for display
+            # and stop before either authorization or Guard OFF simulation.
+            state.action = self.map_action(response, state.id, candidate=True)
+            raise RuntimeFailure(
+                f'Model inference completed, but the proposed action cannot be used: {response.output.validation_error}',
+                'model_action_invalid',
+            )
         if not response.output.parsed:
             # A syntactically decoded candidate is display-only. Never promote
             # schema-invalid output to an executable action, even with Guard OFF.
@@ -149,7 +159,7 @@ class PrototypeRuntimeProvider:
         await publish('provenance.attached', 'Input-to-model transport lineage recorded. Semantic region grounding is unavailable.')
         if state.guard_enabled:
             if response.policy is None:
-                raise RuntimeFailure('Policy unavailable. Automatic execution was withheld.')
+                raise RuntimeFailure('Policy unavailable. Automatic execution was withheld.', 'policy_unavailable')
             state.decision = PolicyDecision.model_validate({key: response.policy[key] for key in PolicyDecision.model_fields})
             state.components['policy'] = 'live'
             status = 'allowed' if state.decision.result == 'allow' else 'blocked'

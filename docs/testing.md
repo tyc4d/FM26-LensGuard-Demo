@@ -1,3 +1,11 @@
+# Unusable direction and terminal authorization validation — 2026-09-05
+
+- Reproduced the reported `direction: "未知"` failure from the live Prototype traceback: the frozen parser accepted the strings, but the action normalizer rejected the direction. This had been reported as generic policy unavailability, while the proposal panel still displayed pending authorization.
+- The Prototype now separates action-value validation from unexpected policy failure. The Demo preserves raw/candidate values, terminates with `model_action_invalid`, and withholds both authorization and Guard OFF simulation. Failed valid proposals show `NOT AUTHORIZED`; invalid values show `INVALID ACTION`.
+- **48 Demo backend tests** and **17 Prototype service CPU tests** passed. The isolated browser run passed 31 tests; one existing test used a hardcoded backend port, was changed to the test's same-origin API, then passed its targeted rerun. All **32 browser checks** are covered, including terminal policy failures and invalid directions with Guard ON/OFF.
+- Rebuilt both Docker images, restarted the task's Prototype service while idle, and recreated the live containers. A real HTTPS Chromium navigation run against the test business-card image returned another unusable model value (`direction: "出口"`, `destination: "在哪裡"`). Run `run_e20a4b82d7c84aa6` retained that output, ended after `inference.completed` with `runtime.failed` / `model_action_invalid`, and displayed a terminal invalid action with no policy or execution. First request including load took about 4.87 s; model inference took 1.31 s. This checks error handling, not navigation accuracy.
+- Docker remains in prototype mode. Model packages, frozen parser/prompt/firewall code, and semantic-grounding capabilities were not changed. Both repository diffs pass whitespace checks.
+
 # Docker real inference validation — 2026-09-05
 
 - Corrected the running deployment from mock to the existing Linux live override. The host's ignored root `.env` now selects `COMPOSE_FILE=docker-compose.yml:docker-compose.live.yml`, so ordinary Compose commands retain prototype mode. Base-only Compose remains available for mock tests.

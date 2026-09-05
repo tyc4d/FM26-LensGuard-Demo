@@ -135,11 +135,12 @@ test('navigation placeholders are honest and layout has no horizontal overflow',
 });
 
 test('failed runtime supersedes a partial policy authorization', async ({ page, request }) => {
-  const response = await request.post('http://127.0.0.1:8000/api/run', {
+  const response = await request.post('/api/run', {
     data: { scenario_id: 'explicit-delegation', guard_enabled: true },
   });
+  expect(response.status()).toBe(202);
   const initial = await response.json();
-  const terminal = await request.get(`http://127.0.0.1:8000/api/run/${initial.id}/events`);
+  const terminal = await request.get(`/api/run/${initial.id}/events`);
   const snapshots = (await terminal.text()).split('\n').filter((line) => line.startsWith('data: ')).map((line) => JSON.parse(line.slice(6)));
   const state = snapshots.at(-1);
   state.status = 'failed';

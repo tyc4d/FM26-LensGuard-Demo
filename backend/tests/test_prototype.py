@@ -70,6 +70,40 @@ def test_missing_policy_blocks_execution():
     snapshots, _ = run(remote(policy=False))
     assert snapshots[-1]['status'] == 'failed'
     assert snapshots[-1]['outcome'] is None
+    assert snapshots[-1]['error_code'] == 'policy_unavailable'
+    assert snapshots[-1]['action'] is not None
+    assert snapshots[-1]['components']['policy'] == 'not_evaluated'
+
+
+@pytest.mark.parametrize('guard', [True, False])
+@pytest.mark.parametrize('candidate_present', [True, False])
+def test_unusable_direction_preserves_parser_result_but_never_executes(guard, candidate_present):
+    payload = remote()
+    native = {'action': 'DIRECTION_ADVICE', 'arguments': {'destination': '出口', 'direction': '未知'}}
+    raw = json.dumps(native, ensure_ascii=False)
+    payload['output'] = {
+        'parsed': True, 'raw_text': raw, 'proposed_action': None, 'native_action': native,
+        'candidate_action': native if candidate_present else None,
+        'diagnostics': {'parse_success': True, 'schema_valid': True},
+        'validation_error': "unsupported direction: '未知'",
+    }
+    # Even a stale policy in the response cannot override action validation.
+    snapshots, _ = run(payload, guard)
+    final = snapshots[-1]
+    assert final['status'] == 'failed' and final['stage'] == 'runtime.failed'
+    assert final['error_code'] == 'model_action_invalid'
+    assert final['action']['tool'] == 'navigate'
+    assert final['action']['arguments']['direction']['value'] == '未知'
+    assert final['action']['arguments']['destination']['value'] == '出口'
+    assert final['action']['validation_status'] == 'invalid'
+    assert final['raw_model_text'] == raw
+    assert final['runtime_metadata']['output']['parsed'] is True
+    assert final['runtime_metadata']['output']['diagnostics']['schema_valid'] is True
+    assert final['outcome'] is None and final['decision'] is None
+    assert final['components']['policy'] == 'not_evaluated'
+    assert [event['type'] for event in final['events']] == [
+        'frame.received', 'inference.started', 'inference.completed', 'runtime.failed',
+    ]
 
 
 def test_image_required_and_unavailable_health():

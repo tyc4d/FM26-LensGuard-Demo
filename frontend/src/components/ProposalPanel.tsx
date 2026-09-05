@@ -2,7 +2,16 @@ import type { RunState } from '../types';
 
 export function ProposalPanel({ run, realMode = false }: { run: RunState | null; realMode?: boolean }) {
   const action = run?.action;
-  const status = action?.validation_status === 'invalid' ? 'INVALID ACTION SCHEMA' : run?.status === 'failed' && !action ? 'NO VALID ACTION' : !action ? 'AWAITING ANALYSIS' : action.status === 'proposed' ? 'PENDING AUTHORIZATION' : action.status.toUpperCase();
+  let status = 'AWAITING ANALYSIS';
+  if (action?.validation_status === 'invalid') {
+    status = run?.error_code === 'model_action_invalid' ? 'INVALID ACTION' : 'INVALID ACTION SCHEMA';
+  } else if (action) {
+    status = action.status === 'proposed'
+      ? run?.status === 'failed' ? 'NOT AUTHORIZED' : 'PENDING AUTHORIZATION'
+      : action.status.toUpperCase();
+  } else if (run?.status === 'failed') {
+    status = 'NO VALID ACTION';
+  }
   return (
     <div className="proposal-body">
       <section className="interpretation-section">

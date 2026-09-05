@@ -1,10 +1,20 @@
 import type { RunState, Scenario } from '../types';
 
 export function presentRun(run: RunState | null, active: boolean) {
+  if (run?.status === 'failed' && run.error_code === 'model_action_invalid') return {
+    tone: 'interrupted', status: 'INVALID MODEL OUTPUT', headline: '模型已完成，行動參數無效',
+    subtitle: 'The model did not produce a usable action. No action was executed.',
+    reason: run.error || 'The proposed action contains an unsupported value.',
+  };
   if (run?.status === 'failed' && ['model_schema_invalid', 'action_mapping_failed', 'model_output_parse_failed'].includes(run.error_code || '')) return {
     tone: 'interrupted', status: 'INVALID MODEL OUTPUT', headline: '模型已完成，行動格式不完整',
     subtitle: 'Inference completed. The output could not be authorized or executed.',
     reason: run.error || 'Action validation failed.',
+  };
+  if (run?.status === 'failed' && run.action && !run.decision) return {
+    tone: 'interrupted', status: 'NOT AUTHORIZED', headline: 'Authorization did not complete.',
+    subtitle: 'The proposed action was not executed.',
+    reason: run.error || 'Authorization was unavailable. Automatic execution was withheld.',
   };
   if (run?.status === 'failed') return {
     tone: 'interrupted', status: 'INTERRUPTED', headline: run.error?.includes('could not be parsed') ? 'Model output could not be parsed.' : 'Analysis interrupted.',
