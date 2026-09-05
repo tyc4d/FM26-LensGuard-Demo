@@ -1,0 +1,13 @@
+# Linux-only: keep Prototype inference bound to host loopback.
+# Requires Docker Compose 2.24.4+ for !reset.
+services:
+  backend:
+    network_mode: host
+    ports: !reset []
+    environment:
+      LENSGUARD_RUNTIME: prototype
+      PROTOTYPE_RUNTIME_URL: http://127.0.0.1:8010
+      INFERENCE_TIMEOUT_SECONDS: ${INFERENCE_TIMEOUT_SECONDS:-180}
+  frontend:
+    extra_hosts:
+      - "backend:host-gateway"

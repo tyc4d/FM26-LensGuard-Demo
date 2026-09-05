@@ -1,0 +1,17 @@
+.git
+certs
+**/*.pem
+**/*.key
+**/.venv
+**/venv
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+**/playwright-report
+**/test-results

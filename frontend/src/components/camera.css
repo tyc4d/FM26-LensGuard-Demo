@@ -1,0 +1,49 @@
+.camera-panel { background: #171818; color: #f6f5f1; border: 1px solid #252727; border-radius: 12px; overflow: hidden; }
+.stage-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr); }
+.camera-column { min-width: 0; padding: 24px; border-right: 1px solid #343636; }
+.stage-camera-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; color: #c3c3c3; font-size: 14px; margin-bottom: 18px; }
+.stage-camera-header > span:first-child { font-size: 16px; color: #efeeea; }
+.stage-camera-header > span:last-child { font: 12px var(--font-mono); letter-spacing: .05em; }
+.camera-viewport { position: relative; height: clamp(280px, 23vw, 390px); width: 100%; overflow: hidden; background: #202222; border: 1px solid #3c3c3c; border-radius: 8px; }
+.camera-viewport video { display: block; width: 100%; height: 100%; object-fit: cover; visibility: hidden; }
+.camera-viewport--live video { visibility: visible; }
+.camera-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 28px; text-align: center; }
+.camera-placeholder > span { color: #f2f1ee; font-size: clamp(30px, 3vw, 46px); font-weight: 550; letter-spacing: -1.3px; }
+.camera-placeholder p { color: #b2b2b2; font-size: 17px; }
+.camera-placeholder .camera-button { margin-top: 12px; }
+.camera-placeholder--fixture { justify-content: flex-end; padding: 10px; }
+.camera-placeholder--fixture > span { color: #b2b2b2; font-size: 13px; font-weight: 400; letter-spacing: 0; }
+.camera-overlays { position: absolute; inset: 0; pointer-events: none; }
+.camera-region { position: absolute; border: 1px solid #c5c5c5; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; }
+.camera-region-label { position: absolute; top: -22px; left: -1px; max-width: calc(100% + 2px); overflow: hidden; white-space: nowrap; background: #2b2b2b; color: #eaeaea; font: 11px/1.5 var(--font-mono); padding: 2px 6px; }
+.camera-region-text { font-size: clamp(16px, 1.4vw, 25px); font-weight: 500; line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere; padding: 4px 8px; background: #272727; color: #f4f4f4; }
+.camera-region--instruction { border-color: #dc8d85; }
+.camera-region--instruction .camera-region-label, .camera-region--instruction .camera-region-text { background: #332524; color: #f2aaa1; }
+.camera-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; min-height: 48px; }
+.image-file-input { display: none; }
+.uploaded-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.image-filename { margin-top: 12px; color: #b2b2b2; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.camera-button, .camera-controls select { min-height: 48px; border: 1px solid #555555; border-radius: 6px; color: #eee; background: #262626; padding: 10px 16px; font-size: 16px; }
+.camera-button { flex-shrink: 0; font-weight: 550; }
+.camera-button:hover { background: #383838; }
+.camera-button.camera-start-button { background: #f3f2ed; color: #171818; border-color: #f3f2ed; min-height: 56px; padding: 12px 26px; font-size: 18px; }
+.camera-start-button:hover { background: #dedede; }
+.camera-controls select { min-width: 0; max-width: 290px; margin-left: auto; }
+.camera-error { margin-top: 14px; padding: 12px 14px; background: #2f2f2f; border: 1px solid #575757; border-radius: 6px; color: #e1e1e1; font-size: 15px; line-height: 1.6; }
+.camera-disclosure { margin: 0; border-top: 1px solid #343636; padding: 12px 24px; color: #adadad; font-size: 13px; }
+@media (min-width: 1700px) { .camera-column { padding: 28px; } }
+@media (max-width: 1000px) {
+  .stage-layout { grid-template-columns: minmax(0, 1.35fr) minmax(290px, 1fr); }
+  .camera-column { padding: 18px; }
+  .camera-controls { flex-wrap: wrap; }
+  .camera-controls select { max-width: 100%; flex: 1; font-size: 14px; }
+}
+@media (max-width: 760px) {
+  .stage-layout { grid-template-columns: minmax(0, 1fr); }
+  .camera-column { border-right: 0; border-bottom: 1px solid #343636; }
+  .camera-viewport { height: 310px; }
+  .camera-placeholder > span { font-size: 36px; }
+  .camera-region-text { font-size: 17px; }
+  .camera-region-label { font-size: 9px; top: -19px; }
+  .camera-disclosure { padding: 14px 18px; font-size: 12px; }
+}
