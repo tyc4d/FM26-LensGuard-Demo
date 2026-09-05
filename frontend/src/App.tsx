@@ -142,7 +142,8 @@ export default function App() {
       <div className="presentation-health"><span className={`health-dot ${demo.connected ? 'connected' : ''}`} aria-hidden="true" /><span data-testid="status-backend">後端 {demo.connected ? '已連線' : '未連線'}</span><span>{realMode ? `${demo.health?.prototype?.model_profile || '本機模型'} · ${displayLabel(demo.health?.prototype?.status || 'unavailable')}` : '模擬資料模式'}</span></div>
     </header>
     <main>
-      <div hidden={page !== 'demo'}>
+      <div className="presentation-demo" hidden={page !== 'demo'}>
+        <div className="presentation-viewport">
         <section className="presentation-toolbar" aria-label="展示操作">
           <div className="scenario-control"><label htmlFor="scenario">情境</label><select id="scenario" value={demo.scenarioId} onChange={(event) => { clearPresentation(); demo.selectScenario(event.target.value); }} disabled={busy || !demo.scenarios.length}>
             {!demo.scenarios.length && <option value="reservation-injection">正在載入情境…</option>}
@@ -180,6 +181,7 @@ export default function App() {
           <PresenterControls playing={story.playing} canPlay={story.canNext} canPrevious={story.canPrevious} canNext={story.canNext || nextComparison} canReplay={!!selectedRun && !busy} onPrevious={story.previous} onNext={next} onTogglePlay={story.togglePlay} onReplay={story.replayCurrent} />
           <span className="keyboard-hint">← → 換幕 · 空白鍵 播放／暫停 · R 重播</span>
           <button type="button" className="reset-presentation" onClick={reset}>重設</button>
+        </div>
         </div>
         {nextComparison && <button type="button" className="comparison-next" onClick={next}>接著看同一份輸入開啟防護後的結果 →</button>}
         {comparison.phase === 'complete' && terminal && selectedRun?.id === comparison.withGuard?.id && <section className="comparison-result" aria-label="防護比較結果">

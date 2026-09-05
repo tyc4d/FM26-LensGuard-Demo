@@ -186,6 +186,7 @@ export function DemoStage({ phase, run, playing, onImpactEnd, children }: DemoSt
     : finalKind === 'executed' ? '防護已略過。\n行動已模擬執行。'
     : missingDetails ? '資料還不完整。\n先補齊，再前進。' : '分析尚未完成。\n這次沒有執行行動。';
   const finalReason = finalKind === 'failed' ? run.raw?.error || '本次沒有可呈現的有效判定，請查看詳細資料。' : run.outcome?.detail || run.policy?.reason || '';
+  const gateQuestion = run.raw?.guard_enabled === false ? '未套用授權判定；請接續查看模擬結果。' : run.criticalValue?.authority.includes('delegated') ? '本次值附有使用者授權紀錄，仍依實際規則判定。' : '提供資訊的來源，有權決定這次行動嗎？';
   return <section className="story-stage" data-phase={shownPhase} data-playing={playing} aria-label="逐步展示畫面" style={{ '--story-play-state': playing ? 'running' : 'paused' } as CSSProperties}>
     <header className="story-context">
       <span className="story-principle">讀取 <b>≠</b> 服從</span>
@@ -199,7 +200,8 @@ export function DemoStage({ phase, run, playing, onImpactEnd, children }: DemoSt
     </div>
     <div className="story-live-input" hidden={!inputPhase} inert={phase === 'capture'}>{children}</div>
 
-    <figure className="story-scene" hidden={inputPhase} data-has-image={!!run.frameUrl}>
+    <div className="story-body" hidden={inputPhase}>
+    <figure className="story-scene" data-has-image={!!run.frameUrl}>
       <SnapshotContents key={run.frameUrl || 'no-frame'} run={run} phase={phase} />
       <figcaption>{run.real ? '本次輸入畫面' : '模擬情境'}{run.raw?.frame_id && <span>{run.raw.frame_id}</span>}</figcaption>
     </figure>
@@ -218,11 +220,15 @@ export function DemoStage({ phase, run, playing, onImpactEnd, children }: DemoSt
         <div className="story-evidence-note"><span className="story-dot" />{run.real ? run.semanticGrounding ? '依本次回傳區域呈現' : '模型推論；語意區域尚未對應' : '場景與區域來自模擬範例'}</div>
       </div>}
       {phase === 'semantic' && <div className="story-semantic-copy">
+        <div className="story-semantic-heading">
         <p className="story-overline">02・讀取</p>
         <h2>{hasValue ? '模型讀出了一個關鍵值。' : '有了觀察，還需要理解。'}</h2>
+        </div>
+        <div className="story-semantic-details">
         <ProvenanceMetadata run={run} />
         <p className="story-lead">{hasValue ? '讀取這個值，不代表取得使用它的授權。' : run.raw?.status === 'running' ? '正在等候本機模型回覆。' : '模型尚未產生可用的行動值。'}</p>
         {!hasValue && <div className="story-empty-value">尚無關鍵值</div>}
+        </div>
       </div>}
       {phase === 'provenance' && <div className="story-provenance-copy">
         <p className="story-overline">03・追溯</p><h2>知道內容，<br />也要知道來源。</h2>
@@ -236,9 +242,10 @@ export function DemoStage({ phase, run, playing, onImpactEnd, children }: DemoSt
           <div className="story-connection" aria-hidden="true"><span /><i /></div>
           <div className="story-gate" data-enabled={run.raw?.guard_enabled !== false}><svg viewBox="0 0 60 70" aria-hidden="true"><path d="M30 5 52 14v19c0 15-10 24-22 32C18 57 8 48 8 33V14Z" /><path d="M23 29h14v17H23ZM26 29v-4a4 4 0 0 1 8 0v4" /></svg><strong>LensGuard</strong><span>{run.raw?.guard_enabled === false ? '本次防護已關閉' : phase === 'authorization' ? '確認來源是否具有權限' : '授權邊界'}</span>
             {phase === 'authorization' && <><PolicyFacts run={run} /><p className="story-gate-status" data-result={run.policy?.result || 'pending'}>{run.raw?.guard_enabled === false ? '判定已略過' : run.policy ? run.policy.result === 'allow' ? '判定：允許' : '判定：拒絕' : '等待實際授權判定'}</p><p className="story-gate-reason">{run.policy?.reason || (run.raw?.guard_enabled === false ? '防護關閉，未套用授權規則。' : '收到規則判定後，才會呈現結果。')}</p></>}
+            {phase === 'proposal' && <p className="story-gate-question">{gateQuestion}</p>}
           </div>
         </div>
-        <p className="story-gate-question">{run.raw?.guard_enabled === false ? '未套用授權判定；請接續查看模擬結果。' : run.criticalValue?.authority.includes('delegated') ? '本次值附有使用者授權紀錄，仍依實際規則判定。' : '提供資訊的來源，有權決定這次行動嗎？'}</p>
+        {phase === 'authorization' && <p className="story-gate-question">{gateQuestion}</p>}
       </div>}
       {requestedFinal && <div className="story-final" data-result={finalKind} onAnimationEnd={event => {
         if (playing && event.target === event.currentTarget && event.animationName === 'story-focus-enter') onImpactEnd?.();
@@ -258,6 +265,7 @@ export function DemoStage({ phase, run, playing, onImpactEnd, children }: DemoSt
         </div>
       </div>}
     </div>}
+    </div>
     <footer className="story-stage-footnote"><span><i className="story-dot" />{run.real ? '真實模型推論' : '模擬情境展示'}</span><span>所有外部行動皆為模擬</span></footer>
   </section>;
 }
