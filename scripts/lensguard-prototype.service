@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/FM26-LensGuard-Prototype
+WorkingDirectory=%h/FM26-LensGuard-Demo/prototype
 ExecStart=%h/venvs/lensguard-vlm/bin/python -m prototype_demo_server --model qwen3vl-8b --host 127.0.0.1 --port 8010
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure

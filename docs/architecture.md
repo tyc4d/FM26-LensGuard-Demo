@@ -1,44 +1,60 @@
-# Live runtime architecture
+# LensGuard Demo 架構
 
-Browser camera / uploaded image → one JPEG snapshot → same-origin HTTPS /api → Demo FastAPI → loopback Prototype HTTP service → resident Qwen3-VL 8B → existing action parser → deterministic authorization → simulated action → SSE UI.
+```mermaid
+flowchart TD
+    U[使用者需求與相機／上傳圖片] --> F[React 單頁展示]
+    F -->|凍結圖片與需求，REST| B[Demo FastAPI]
+    B -->|SSE 狀態與結果| F
+    B -->|prototype 模式，loopback HTTP| P[Prototype runtime]
+    B -->|mock 模式| M[scenarios.json 固定情境]
+    P --> T[Qwen：只讀使用者需求]
+    T --> V[Qwen：只轉錄圖片]
+    V --> S[Qwen：從保留的文字選取引用]
+    S --> G[程式檢查任務、引用與完整值]
+    G --> O[資訊回答／模擬撥號／停止]
+    O --> B
+    M --> B
+    B <--> R[有數量上限的記憶體 RunStore]
+```
 
-`PrototypeRuntimeProvider` in the Demo translates the versioned HTTP contract into existing RunState snapshots. The Prototype owns model loading, preprocessing, prompts, parsing and policy. Neither repository imports the other. MockRuntimeProvider retains the deterministic scenario flow and is chosen only by explicit/default mock configuration.
+## Repo 與執行邊界
 
-The Prototype service reuses `create_local_provider('qwen3vl-8b')` and `invoke_phase3_5(ACTION_ONLY)` without editing benchmark implementation or configuration. It serializes inference, rejects concurrent compute workloads, lazily keeps one model resident, and never terminates other GPU processes. Reset only detaches the presentation; it does not cancel GPU generation.
+Demo 的 `prototype` symlink 指向旁邊的 Prototype repo；兩邊保留獨立 Git
+歷史與 Python 環境，操作方式見 [workspace 說明](prototype-workspace.md)。
+`backend/app/prototype_provider.py` 透過版本化 HTTP 合約轉接 Prototype 回應，
+沒有跨 repo Python import。模型載入、圖片前處理、提示、解析與授權檢查
+由 Prototype 負責。Demo 管理 HTTP/SSE、快照、展示及模擬動作。
 
-The camera image and trusted user task are separate multipart fields. The existing action-only wrapper separates trusted task input from environmental evidence. Attack instructions must be in pixels, never pasted into the trusted task by scenario fixtures.
+實際 Guard ON 流程是 `user-task-cited-evidence-v1`：同一常駐模型使用三次
+獨立對話，依序解析使用者任務、轉錄圖片、選取既有引用。程式檢查原文引用、
+完整電話及任務一致性後組裝輸出。詳見 [任務與引用約束](task-boundary.md)。
+模型判斷仍可能錯誤；引用一致不代表招牌真實、電話所有權或獨立 OCR 驗證。
 
-Automatic semantic evidence extraction is not wired. The trace therefore shows actual image → model → proposal transport lineage, plus scoped user delegation where applicable. Model values remain model-origin/untrusted; no camera region grounding is asserted. Existing Phase 2 thin gate decisions are preserved; non-ALLOW decisions withhold automatic execution. The business-card task has a narrow deterministic demo delegation rule, not a benchmark-policy modification. See README for its limitations.
+## 展示與比較
 
-Further Phase 3.6 integration belongs inside the Prototype service: supply an independent automatic perception implementation and immutable evidence registry, then invoke the stable grounding and authorization pipeline. Expose real evidence and policy through the existing HTTP response; never substitute model-generated trust labels for authority.
+`frontend/src/experience.ts` 將實際 `RunState` 轉成四個展示階段：觀察、分辨、
+判斷、保護。`DemoExperience.tsx` 顯示同一張圖片、採用的資訊、忽略的指令與
+實際結果。沒有座標的文字以文字呈現，不產生偵測框或信心分數。`D` 開啟
+詳細資訊，保留原始模型輸出、來源、判定與事件。
 
-Evaluation remains a placeholder. A live model response, a withheld action, or a scoped delegation demonstration is not a measured defense success rate.
+`useComparison.ts` 保存一次凍結的圖片與原始請求。乾淨選項只做一次 Guard ON；
+干擾選項先做 Guard ON，再傳相同輸入取得獨立 Guard OFF 提議。Guard OFF
+透過 `guard_enabled=false` 到達 Prototype，使用單次原始提議。兩次推論結果
+可能相同；UI 如實呈現，失敗也保留為失敗。所有撥號都只模擬。
 
-## Presentation layer
+下一步／上一步切換階段，重播使用既有結果而不重新推論。重設會清除前台狀態
+並斷開事件流，不會取消正在進行的 GPU 推論。SSE 斷線恢復則重新連接既有 run。
 
-The cinematic frontend adds a data adapter and presentation state machine over the existing `RunState` snapshots. Model loading, prompts, parsing, policy, backend event ordering, and the runtime API are unchanged. `story.ts` normalizes existing fields for display, `usePresentation.ts` controls playback, and `useComparison.ts` collects the two comparison records through the existing run API.
+## 儲存、模型與外部服務
 
-| Display data | Actual source and limits |
-| --- | --- |
-| User request and frozen image | The submitted client request and captured frame URL; comparison retains the same request and frame for both calls. |
-| Detections | `RunState.regions`; an empty list stays empty. No OCR boxes, confidence scores, or regions are synthesized. |
-| Proposed action | `RunState.action`, including its existing argument values and validation status. Raw model values are preserved. |
-| Highlighted argument | Prefer `decision.affected_argument`, then the first validation issue, when that argument exists; otherwise select the tool's primary existing argument or first existing field. Selection alone does not establish policy relevance or verified grounding. |
-| Argument provenance | The selected `ProvenanceValue`, `trace_nodes`, and `trace_edges`. Source, trust, and authority are preserved; model-origin values do not become camera-origin values merely because an image was an input. |
-| Semantic grounding | True only when runtime metadata explicitly reports `semantic_grounding` as verified. Transport lineage and scoped delegation do not imply semantic verification. |
-| Authorization and result | `RunState.decision` and `RunState.outcome`. Missing or failed results remain missing or failed; no substitute decision is generated. |
-| Runtime identity and diagnostics | The selected record's `runtime`, `runtime_metadata`, `raw_model_text`, and events remain available in the details drawer, including during cached replay. |
+沒有資料庫。Demo 的 RunStore 存在記憶體中，完成的舊 run 會依容量限制淘汰；
+服務重啟後資料清除。Prototype 只為推論建立暫存圖片並於請求結束刪除。
+影像、使用者需求與模型原文仍可能含敏感資料，評選請使用合成或可公開素材。
 
-The presentation order is idle → capture → perception → semantic → provenance → proposal → authorization → the applicable blocked, allowed, executed, or failed result. Stage availability follows received fields and events. Perception may show actual inference progress with no detected regions, and the semantic stage presents received observations or proposed values without claiming verified grounding. Failed runs can reach failure directly after the supported explanatory stages, without inventing policy data. Completed result stages require matching actual authorization or bypass and outcome data.
+Qwen 權重從 Hugging Face 預先下載，服務啟動後使用本機快取與 GPU，不呼叫
+雲端模型 API。服務一次處理一個推論請求，GPU preflight 會拒絕資源不足或其他
+運算工作佔用的情況。Docker 只封裝 Demo；真實推論服務在主機 loopback 執行。
 
-One effect-owned timer advances available stages about every two seconds. A full sequence takes roughly twelve seconds after its data is available; inference can take longer. Playback waits when data is unavailable and stops at the terminal stage. New snapshots for the same run do not override the presenter's manual stage or pause; a new run starts a new presentation. Previous/next pauses playback, and reduced-motion preference defaults to manual control. Keyboard controls are Left/Right for previous/next, Space for play/pause, and R for current-record replay, except during text entry or while the details drawer is open. Opening the drawer pauses playback.
-
-## Comparison and replay
-
-**建立防護比較** captures once and saves the exact query, scenario, image Blob, and capture metadata. It submits two sequential requests using the existing API: guard off, then guard on. In prototype mode both requests upload the same image bytes; mock mode uses its configured fixtures and does not upload the image. These are independent runtime calls, so proposals may differ even with identical input. Each response keeps its own run ID, action, policy, failure, and outcome.
-
-The unguarded story remains selected while the guarded request runs. After the first result, an explicit next step selects the guarded record; after the second result, playback stops and the comparison summary is shown. A failed half remains an analysis failure, never a fabricated bypass or successful defense. Capture or request errors that prevent collection leave an incomplete comparison visible as such.
-
-**重播** and **R** replay the current cached record; **重播比較** starts again from the cached unguarded record and uses an explicit next step to reach the cached guarded record. These controls do not invoke inference or submit requests. This presentation replay is distinct from SSE `Last-Event-ID` recovery, which reconnects to the existing server run. Reset clears local presentation and comparison state and detaches the event stream; it does not cancel GPU generation or stop the camera.
-
-Mock mode remains an explicit configuration choice, not an error recovery branch. Local backend configuration uses `LENSGUARD_RUNTIME=mock`; base `docker-compose.yml` also uses mock mode. The live Compose override selects `prototype`, including when persisted through root `.env` `COMPOSE_FILE`. A disconnected or failing Prototype service never silently substitutes fixture outcomes. Existing HTTPS and host-runtime setup remain documented in the [README](../README.md).
+Mock 模式明確使用 `mock-data/scenarios.json`，相機圖片留在瀏覽器。
+Prototype 不可用或逾時時回報錯誤，不會自動切換 Mock。
+部署與 HTTPS 見 [維運指南](development.md)，欄位與事件見 [API 合約](api-contract.md)。
