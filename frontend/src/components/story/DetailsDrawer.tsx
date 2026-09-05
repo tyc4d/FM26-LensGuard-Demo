@@ -7,12 +7,15 @@ import { DecisionTrace } from '../DecisionTrace';
 import { EventTimeline } from '../EventTimeline';
 import { RawAction } from '../RawAction';
 import { RunSummary } from '../RunSummary';
+import { SemanticEvidence } from '../SemanticEvidence';
+import { isInformational } from '../../story';
 import './details-drawer.css';
 
 export interface DetailsDrawerProps {
   open: boolean;
   onClose: () => void;
   run: RunState | null;
+  baseline?: RunState | null;
   health: Health | null;
   query: string;
   frameUrl: string | null;
@@ -24,7 +27,7 @@ function rawData(value: unknown): string {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
-export function DetailsDrawer({ open, onClose, run, health, query, frameUrl, realMode }: DetailsDrawerProps) {
+export function DetailsDrawer({ open, onClose, run, baseline, health, query, frameUrl, realMode }: DetailsDrawerProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -53,7 +56,7 @@ export function DetailsDrawer({ open, onClose, run, health, query, frameUrl, rea
         <button type="button" className="details-drawer-close" onClick={onClose} autoFocus aria-label="關閉細節"><span aria-hidden="true">×</span><span>關閉細節</span></button>
       </header>
       <div className="details-drawer-content">
-        <p id={descriptionId} className="details-drawer-description">原始輸入、模型輸出與授權判斷。來源紀錄不代表已驗證語意對應。</p>
+        <p id={descriptionId} className="details-drawer-description">原始輸入、語意角色、支持證據與使用者授權。場景文字對應仍依賴文字擷取與分類結果。</p>
         <section className="details-drawer-request" aria-label="本次使用者請求">
           <h3>使用者請求</h3><p>{query || '尚未提供請求。'}</p>
         </section>
@@ -71,7 +74,7 @@ export function DetailsDrawer({ open, onClose, run, health, query, frameUrl, rea
             <dl className="details-drawer-facts">
               <div><dt>分析識別碼</dt><dd>{run?.id || '—'}</dd></div>
               <div><dt>{realMode ? '偵測區域' : '模擬區域'}</dt><dd>{run?.regions.length || 0}</dd></div>
-              <div><dt>行動執行</dt><dd>{run?.outcome?.simulation_only === false ? '依執行結果紀錄' : '模擬'}</dd></div>
+              <div><dt>使用目的</dt><dd>{isInformational(run) ? '資訊回答' : run?.outcome?.simulation_only === false ? '依執行結果紀錄' : '模擬外部行動'}</dd></div>
             </dl>
             {timings.length > 0 && <section className="details-drawer-latency"><h3>處理耗時</h3><dl>{timings.map(([key, value]) => <div key={key}><dt>{timingLabel(key)}</dt><dd>{value.toFixed(1)} 毫秒</dd></div>)}</dl></section>}
             {run?.raw_model_text != null && <section className="details-drawer-model-output"><h3>本機模型原始輸出</h3><pre>{run.raw_model_text}</pre></section>}
@@ -81,6 +84,7 @@ export function DetailsDrawer({ open, onClose, run, health, query, frameUrl, rea
               {healthError != null && <section><h3>服務狀態</h3><pre>{rawData(healthError)}</pre></section>}
             </details>}
             <div className="details-drawer-proposal"><ProposalPanel realMode={realMode} run={run} /></div>
+            {!!run?.semantic_regions?.length && <SemanticEvidence regions={run.semantic_regions} />}
             {run ? <DecisionPanel run={run} guardEnabled={run.guard_enabled} /> : <p className="details-drawer-empty">尚無本次分析的授權資料。</p>}
           </div>
         </details>
@@ -88,6 +92,7 @@ export function DetailsDrawer({ open, onClose, run, health, query, frameUrl, rea
         <details className="disclosure event-disclosure"><summary>查看事件時間軸 <span className="detail-count">{run?.events.length || 0} 個事件</span></summary><EventTimeline run={run} active={run?.status === 'running'} /></details>
         <RawAction run={run} />
         <details className="disclosure"><summary>完整執行資料</summary><p className="details-drawer-raw-note">包含原始模型、原生授權規則、來源資料與執行事件。</p><pre>{rawData(run)}</pre></details>
+        {baseline && <details className="disclosure"><summary>未開啟 LensGuard 的執行資料</summary><pre>{rawData(baseline)}</pre></details>}
         <details className="disclosure"><summary>服務狀態原始資料</summary><pre>{rawData(health)}</pre></details>
       </div>
     </dialog>

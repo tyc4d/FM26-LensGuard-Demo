@@ -34,7 +34,7 @@ export function DecisionTrace({ run, realMode = false }: { run: RunState | null;
   return (
     <details className="disclosure trace-section">
       <summary>查看來源紀錄</summary>
-      <p className="trace-caption">{realMode ? '影像 → 模型 → 提案・僅記錄傳輸來源，尚未驗證語意對應。' : (userNodes.length ? '相機提供資料，使用者請求提供授權。' : '來源 → 值 → 參數 → 授權') + '・模擬來源紀錄'}</p>
+      <p className="trace-caption">{run?.semantic_regions?.length ? '來源 → 語意角色 → 證據與使用目的；外部行動另需使用者授權。' : realMode ? '影像 → 模型 → 提案・本次未提供語意區域。' : (userNodes.length ? '相機提供資料，使用者請求提供授權。' : '來源 → 值 → 參數 → 授權') + '・模擬來源紀錄'}</p>
       {nodes.length ? (
         <div className="trace-canvas" data-testid="decision-trace">
           <svg viewBox={`0 0 ${width} ${height}`} style={{ height: userNodes.length ? 122 : 66 }} role="img" aria-label={`來源紀錄：${nodes.map(nodeLabel).join('、')}`}>

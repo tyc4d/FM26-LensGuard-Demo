@@ -1,20 +1,14 @@
 import { useCallback, useEffect, useRef, useState, useImperativeHandle } from 'react';
-import type { ReactNode, Ref } from 'react';
-import type { DetectedRegion, CapturedFrame } from '../types';
+import type { Ref } from 'react';
+import type { CapturedFrame } from '../types';
 import './camera.css';
 
 export interface CameraCapture { capture: () => Promise<CapturedFrame> }
 
 export interface CameraPanelProps {
   captureRef?: Ref<CameraCapture>;
-  realMode?: boolean;
-  cinematic?: boolean;
   disabled?: boolean;
-  regions: DetectedRegion[];
-  frameId: string | null;
-  onLiveChange: (live: boolean) => void;
   onImageChange?: (name: string | null) => void;
-  children?: ReactNode;
 }
 
 function cameraError(error: unknown): string {
@@ -40,7 +34,7 @@ function cameraError(error: unknown): string {
   return '無法啟動相機。請確認瀏覽器權限及相機連線後再試一次。';
 }
 
-export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, children, captureRef, realMode = false, cinematic = false, disabled = false }: CameraPanelProps) {
+export function CameraPanel({ onImageChange, captureRef, disabled = false }: CameraPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageUrlRef = useRef<string | null>(null);
@@ -53,7 +47,6 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
   const detachEventsRef = useRef<(() => void) | null>(null);
   const operationRef = useRef(0);
   const mountedRef = useRef(true);
-  const onLiveChangeRef = useRef(onLiveChange);
   const [live, setLive] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,9 +90,6 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
 
   const supportsFacing = !!navigator.mediaDevices?.getSupportedConstraints?.().facingMode;
 
-  useEffect(() => {
-    onLiveChangeRef.current = onLiveChange;
-  }, [onLiveChange]);
 
   useEffect(() => { onImageChangeRef.current = onImageChange; }, [onImageChange]);
 
@@ -117,7 +107,6 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
 
   const publishLive = useCallback((value: boolean) => {
     if (mountedRef.current) setLive(value);
-    onLiveChangeRef.current(value);
   }, []);
 
   const releaseStream = useCallback(() => {
@@ -152,7 +141,6 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
       imageUrlRef.current = null;
       mediaDevices?.removeEventListener?.('devicechange', refreshDevices);
       releaseStream();
-      onLiveChangeRef.current(false);
     };
   }, [refreshDevices, releaseStream]);
 
@@ -289,7 +277,7 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
     }
   }
 
-  const idleCamera = !uploadedImage && !live && !requesting && regions.length === 0;
+  const idleCamera = !uploadedImage && !live && !requesting;
   const cameraButton = <button type="button" className={`camera-button ${idleCamera ? 'camera-start-button' : ''}`} disabled={disabled} onClick={() => {
     if (disabledRef.current) return;
     if (live || requesting) stopCamera();
@@ -297,35 +285,17 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
   }}>{live || requesting ? '停止相機' : '啟動相機'}</button>;
 
   return (
-    <section className={`camera-panel${cinematic ? ' camera-panel--cinematic' : ''}`} aria-label="相機與行動展示區" data-frame-id={frameId}>
+    <section className="camera-panel" aria-label="相機與行動展示區">
       <div className="stage-layout">
         <div className="camera-column">
-          <div className="stage-camera-header"><span>觀察畫面</span><span data-testid="status-camera">相機 {live ? '使用中' : '已關閉'}</span></div>
           <div className={`camera-viewport${live ? ' camera-viewport--live' : ''}`}>
             <video ref={videoRef} autoPlay playsInline muted aria-label="瀏覽器相機即時畫面" />
             {uploadedImage && <img className="uploaded-image" src={uploadedImage.url} alt={`已上傳的觀察圖片：${uploadedImage.name}`} />}
-            {cinematic && <div className="camera-glass-hud" aria-hidden="true">
-              <span className="camera-glass-corner camera-glass-corner--top-left" />
-              <span className="camera-glass-corner camera-glass-corner--top-right" />
-              <span className="camera-glass-corner camera-glass-corner--bottom-left" />
-              <span className="camera-glass-corner camera-glass-corner--bottom-right" />
-              <span className="camera-glass-label">第一人稱視角</span>
-              <span className={`camera-glass-signal${live || uploadedImage ? ' camera-glass-signal--ready' : ''}`}>{uploadedImage ? '圖片預覽' : live ? '即時畫面' : '等待影像'}</span>
-              <span className="camera-glass-caption">{disabled ? '正在處理本次畫面' : '讓 LensGuard 看見您眼前的世界'}</span>
-            </div>}
-            {!live && !uploadedImage && <div className={`camera-placeholder${regions.length ? ' camera-placeholder--fixture' : ''}`}>
-              <span>{requesting ? '正在等待相機' : regions.length ? '相機已關閉 · 模擬場景' : '相機已關閉'}</span>
-              {!regions.length && <p>{requesting ? '請在瀏覽器中允許存取相機。' : '將鏡頭對準要觀察的環境。'}</p>}
+            {!live && !uploadedImage && <div className="camera-placeholder">
+              <span>{requesting ? '正在等待相機' : '相機已關閉'}</span>
+              <p>{requesting ? '請在瀏覽器中允許存取相機。' : '將鏡頭對準要觀察的環境。'}</p>
               {idleCamera && cameraButton}
             </div>}
-            <div className="camera-overlays" aria-label="模擬偵測區域">
-              {regions.map((region) => <div key={region.id} className={`camera-region${region.kind === 'instruction_like' ? ' camera-region--instruction' : ''}`}
-                style={{ left: `${region.bbox.x * 100}%`, top: `${region.bbox.y * 100}%`, width: `${region.bbox.width * 100}%`, height: `${region.bbox.height * 100}%` }}
-                title={`${region.id} · ${region.kind === 'instruction_like' ? '指令類文字' : '場景文字'} · 相機：${region.text}`}>
-                <span className="camera-region-label">{region.id} · {region.kind === 'instruction_like' ? '指令' : '場景文字'}</span>
-                <span className="camera-region-text">{region.text}</span>
-              </div>)}
-            </div>
           </div>
           <div className="camera-controls">
             {!idleCamera && cameraButton}
@@ -349,9 +319,7 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
           {imageError && <p role="alert" className="camera-error">{imageError}</p>}
           {error && <p role="alert" className="camera-error">{error}</p>}
         </div>
-        {children}
       </div>
-      <p className="camera-disclosure">{realMode ? '點選「開始分析」時，才會將一張圖片傳送至本機視覺語言模型 · 行動採模擬執行' : uploadedImage ? '上傳的圖片僅保留在此瀏覽器 · 分析使用所選的模擬情境' : '模擬區域 · 相機畫面僅保留在此瀏覽器'}</p>
     </section>
   );
 }

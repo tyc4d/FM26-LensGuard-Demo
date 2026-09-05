@@ -1,13 +1,20 @@
 // Translate display labels only. API values, model output, and user input stay intact.
 const labels: Record<string, string> = {
-  call_phone: '撥打電話', navigate: '提供方向', open_url: '開啟網址',
+  call_phone: '撥打電話', navigate: '提供方向', provide_direction: '回答方向', open_url: '開啟網址',
   restaurant_reservation: '餐廳訂位', safety_advice: '安全建議', none: '不採取行動',
+  answer_question: '回答問題', phone_number: '電話號碼', scene_text: '場景文字',
   proposed: '已提出', allowed: '已允許', blocked: '已阻擋', executed: '已模擬執行',
   running: '執行中', completed: '已完成', failed: '執行失敗',
   ready: '已就緒', unloaded: '尚未載入', loading: '載入中', processing: '處理中',
   unavailable: '無法使用', error: '發生錯誤', warmed: '已預熱',
   user: '使用者', camera: '相機', model: '模型', system: '系統',
   task: '任務授權', observation: '觀察資料', delegated: '明確授權',
+  evidence: '支持證據', entity: '實體資料', instruction: '嵌入指令', instruction_derived: '指令衍生', unknown: '語意尚未確認',
+  EVIDENCE: '支持證據', GROUNDED_EVIDENCE: '有依據的場景資訊', USER_DELEGATED: '使用者明確授權',
+  INFORMATIONAL_OUTPUT: '資訊回答', SIDE_EFFECT_ARGUMENT: '外部行動參數',
+  RETAIN: '保留證據', DENY_INSTRUCTION_INFLUENCE: '拒絕指令影響', UNSUPPORTED: '尚無支持證據',
+  restaurant_reservation_phone: '餐廳訂位電話', card_phone: '名片電話', exit_direction: '出口方向',
+  observed_restaurant: '眼前餐廳', observed_card: '眼前名片',
   DELEGATED: '明確授權', OBSERVATION_ONLY: '僅供觀察', NONE: '無',
   EXTERNAL_ACTION_TARGET: '外部行動目標授權', NAVIGATION_DIRECTION: '方向指示授權',
   ALLOW: '允許', ALLOWED: '已允許', BLOCK: '阻擋', BLOCKED: '已阻擋',
@@ -27,7 +34,7 @@ const labels: Record<string, string> = {
 const fields: Record<string, string> = {
   number: '電話號碼', target_number: '電話號碼', restaurant: '餐廳', time: '訂位時間',
   party_size: '用餐人數', direction: '方向', destination: '目的地', url: '網址',
-  advice: '建議', message: '訊息', reason: '原因',
+  advice: '建議', message: '訊息', reason: '原因', text: '文字',
 };
 
 export function displayLabel(value: string | null | undefined): string {
@@ -38,7 +45,7 @@ export function fieldLabel(path: string): string {
   if (fields[path]) return fields[path];
   if (labels[path]) return labels[path];
   const [tool, argument, ...rest] = path.split('.');
-  if (['call_phone', 'navigate', 'open_url', 'restaurant_reservation', 'safety_advice'].includes(tool) && argument && rest.length === 0) {
+  if (['call_phone', 'navigate', 'provide_direction', 'open_url', 'restaurant_reservation', 'safety_advice', 'answer_question'].includes(tool) && argument && rest.length === 0) {
     return `${labels[tool]}／${fields[argument] ?? argument}`;
   }
   return path;
@@ -79,6 +86,7 @@ export function timingLabel(value: string): string {
 const scenarios: Record<string, string> = {
   'reservation-injection': '訂位提示注入', 'navigation-injection': '導航提示注入',
   'explicit-delegation': '使用者明確授權',
+  'clean-navigation': '乾淨出口觀察', 'reservation-delegation': '餐廳訂位電話授權',
 };
 
 export function scenarioLabel(id: string, fallback: string): string {

@@ -2,110 +2,86 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { CapturedFrame, RunState } from './types';
 import type { RunOptions } from './useDemoRuntime';
 
-export interface ComparisonInput { scenarioId: string; query: string; frame?: CapturedFrame }
+export interface ComparisonInput { scenarioId: string; query: string; compare: boolean; frame?: CapturedFrame }
 export interface ComparisonState {
-  phase: 'idle' | 'without' | 'with' | 'complete' | 'failed';
+  phase: 'idle' | 'with' | 'without' | 'complete' | 'failed';
   input: ComparisonInput | null;
-  without: RunState | null;
   withGuard: RunState | null;
+  without: RunState | null;
   ignoreId: string | null;
-  revision: number;
 }
-export type ComparisonAction = { type: 'reset' } | { type: 'begin'; input: ComparisonInput; ignoreId: string | null }
-  | { type: 'without'; run: RunState } | { type: 'with'; run: RunState }
-  | { type: 'failed'; revision?: number };
-export const INITIAL_COMPARISON_STATE: ComparisonState = {
-  phase: 'idle', input: null, without: null, withGuard: null, ignoreId: null, revision: 0,
+export const INITIAL_COMPARISON: ComparisonState = {
+  phase: 'idle', input: null, withGuard: null, without: null, ignoreId: null,
 };
+type Action = { type: 'reset' } | { type: 'begin'; input: ComparisonInput; ignoreId: string | null }
+  | { type: 'received'; run: RunState } | { type: 'failed' };
 
-function snapshotInput(input: ComparisonInput): ComparisonInput {
-  // The Blob is immutable; copy the caller's mutable metadata and query wrapper.
-  return { scenarioId: input.scenarioId, query: input.query,
+function snapshot(input: ComparisonInput): ComparisonInput {
+  // Both requests share immutable image bytes, with copied capture metadata.
+  return { scenarioId: input.scenarioId, query: input.query, compare: input.compare,
     ...(input.frame ? { frame: { ...input.frame } } : {}) };
 }
-
-export function comparisonRunOptions(input: ComparisonInput, guardEnabled: boolean): RunOptions {
-  return { frame: input.frame, userRequest: input.query, scenarioId: input.scenarioId, guardEnabled };
-}
-
-function acceptsRun(state: ComparisonState, run: RunState, guardEnabled: boolean) {
-  return !!state.input && run.status !== 'running' && run.guard_enabled === guardEnabled
-    && run.scenario_id === state.input.scenarioId && run.id !== state.ignoreId;
-}
-
-export function comparisonReducer(state: ComparisonState, action: ComparisonAction): ComparisonState {
+export function comparisonReducer(state: ComparisonState, action: Action): ComparisonState {
   switch (action.type) {
-    case 'reset': return { ...INITIAL_COMPARISON_STATE, revision: state.revision + 1 };
+    case 'reset': return INITIAL_COMPARISON;
     case 'begin':
-      if (state.phase === 'without' || state.phase === 'with') return state;
-      return { ...INITIAL_COMPARISON_STATE, phase: 'without', input: snapshotInput(action.input),
-        ignoreId: action.ignoreId, revision: state.revision + 1 };
-    case 'without': return state.phase === 'without' && acceptsRun(state, action.run, false)
-      ? { ...state, phase: 'with', without: action.run, ignoreId: action.run.id } : state;
-    case 'with': return state.phase === 'with' && acceptsRun(state, action.run, true)
-      ? { ...state, phase: 'complete', withGuard: action.run } : state;
+      if (['with', 'without'].includes(state.phase)) return state;
+      return { ...INITIAL_COMPARISON, phase: 'with', input: snapshot(action.input), ignoreId: action.ignoreId };
     case 'failed':
-      if ((state.phase !== 'without' && state.phase !== 'with')
-          || action.revision !== undefined && action.revision !== state.revision) return state;
-      return { ...state, phase: 'failed' };
+      // A baseline failure must not discard the successfully protected result.
+      return state.phase === 'without' ? { ...state, phase: 'complete' }
+        : state.phase === 'with' ? { ...state, phase: 'failed' } : state;
+    case 'received': {
+      const { run } = action;
+      if (!['with', 'without'].includes(state.phase) || run.status === 'running' || run.id === state.ignoreId) return state;
+      if (run.scenario_id !== state.input?.scenarioId || run.guard_enabled !== (state.phase === 'with')) {
+        return comparisonReducer(state, { type: 'failed' });
+      }
+      return state.phase === 'with'
+        ? { ...state, withGuard: run, ignoreId: run.id, phase: run.status === 'failed' || !state.input?.compare ? 'complete' : 'without' }
+        : { ...state, without: run, phase: 'complete' };
+    }
   }
 }
 
-type StartRun = (capture?: () => Promise<CapturedFrame>, options?: RunOptions) => Promise<void | boolean>;
-export function useComparison(run: RunState | null, active: boolean, error: string | null, startRun: StartRun) {
-  const [state, dispatch] = useReducer(comparisonReducer, INITIAL_COMPARISON_STATE);
+type StartRun = (capture?: () => Promise<CapturedFrame>, options?: RunOptions) => Promise<boolean>;
+export function useComparison(run: RunState | null, active: boolean, startRun: StartRun) {
+  const [state, dispatch] = useReducer(comparisonReducer, INITIAL_COMPARISON);
   const accepted = useRef<string | null>(null);
   const session = useRef(0);
-  const busy = useRef(false);
-
+  const locked = useRef(false);
   const submit = useCallback((input: ComparisonInput, guardEnabled: boolean) => {
     const token = session.current;
-    const failed = () => {
-      if (session.current === token) dispatch({ type: 'failed' });
-    };
-    try {
-      // Start synchronously so the runtime clears its previous error before the
-      // comparison's first effect can mistake that stale error for this request.
-      void startRun(undefined, comparisonRunOptions(input, guardEnabled))
-        .then((started) => { if (started === false) failed(); }, failed);
-    } catch { failed(); }
+    const failed = () => { if (session.current === token) dispatch({ type: 'failed' }); };
+    // Synchronous start clears the previous runtime state before the next effect.
+    void startRun(undefined, { scenarioId: input.scenarioId, userRequest: input.query, frame: input.frame, guardEnabled })
+      .then(started => { if (!started) failed(); }, failed);
   }, [startRun]);
-
+  useEffect(() => { locked.current = ['with', 'without'].includes(state.phase); }, [state.phase]);
   useEffect(() => {
-    busy.current = state.phase === 'without' || state.phase === 'with';
-  }, [state.phase]);
-
-  useEffect(() => {
-    if (active || !['without', 'with'].includes(state.phase)) return;
-    if (!run) { if (error) dispatch({ type: 'failed', revision: state.revision }); return; }
-    if (run.id === accepted.current || !state.input) return;
-    if (state.phase === 'without' && acceptsRun(state, run, false)) {
-      accepted.current = run.id;
-      dispatch({ type: 'without', run });
-      submit(state.input, true);
-    } else if (state.phase === 'with' && acceptsRun(state, run, true)) {
-      accepted.current = run.id;
-      dispatch({ type: 'with', run });
-    }
-  }, [active, error, run, state, submit]);
-
+    if (active || !run || run.status === 'running' || run.id === accepted.current
+      || run.id === state.ignoreId || !state.input || !['with', 'without'].includes(state.phase)) return;
+    accepted.current = run.id;
+    const next = comparisonReducer(state, { type: 'received', run });
+    dispatch({ type: 'received', run });
+    if (state.phase === 'with' && next.phase === 'without') submit(state.input, false);
+  }, [active, run, state, submit]);
   useEffect(() => () => { session.current += 1; }, []);
-
   return {
     ...state,
-    busy: state.phase === 'without' || state.phase === 'with',
+    busy: state.phase === 'with' || state.phase === 'without',
     begin: (input: ComparisonInput) => {
-      if (active || busy.current) return;
-      busy.current = true;
+      if (active || locked.current) return;
+      locked.current = true;
       accepted.current = null;
-      const snapshot = snapshotInput(input);
       session.current += 1;
-      dispatch({ type: 'begin', input: snapshot, ignoreId: run?.id ?? null });
-      submit(snapshot, false);
+      const frozen = snapshot(input);
+      dispatch({ type: 'begin', input: frozen, ignoreId: run?.id ?? null });
+      submit(frozen, true);
     },
     reset: () => {
       session.current += 1;
-      busy.current = false;
+      locked.current = false;
       accepted.current = null;
       dispatch({ type: 'reset' });
     },

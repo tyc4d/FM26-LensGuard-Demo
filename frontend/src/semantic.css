@@ -1,0 +1,19 @@
+.semantic-evidence-list { display: grid; gap: 12px; text-align: left; }
+.semantic-evidence { min-width: 0; padding: 14px 18px; border: 1px solid #586d51; border-radius: 9px; background: #25342b; overflow-wrap: anywhere; }
+.semantic-evidence header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; color: #c0d4ab; font-size: 12px; }
+.semantic-evidence p { margin: 8px 0 0; color: #f1efdf; font-size: 19px; line-height: 1.4; }
+.semantic-evidence small { display: block; margin-top: 6px; color: #c0d4ab; }
+.semantic-evidence[data-status='DENY_INSTRUCTION_INFLUENCE'] { border-color: #81624f; background: #3e3029; }
+.semantic-evidence[data-status='DENY_INSTRUCTION_INFLUENCE'] header { color: #e8ae93; }
+.semantic-argument-decisions { margin-top: 16px; display: grid; gap: 10px; }
+.semantic-argument-decisions > div { padding: 10px; border: 1px solid var(--border); }
+.delegation-facts { display: grid; gap: 8px; margin-top: 16px; }
+.delegation-facts > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; }
+@media (max-height: 800px) and (min-width: 761px) {
+  .semantic-evidence { padding: 10px 14px; }
+  .semantic-evidence p { font-size: 17px; }
+}
+@media (max-width: 760px) {
+  .semantic-evidence header { font-size: 11px; }
+  .semantic-evidence p { font-size: 17px; }
+}

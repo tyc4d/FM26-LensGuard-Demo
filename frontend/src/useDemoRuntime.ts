@@ -9,10 +9,10 @@ export interface RunOptions {
   frame?: CapturedFrame;
 }
 
-export function useDemoRuntime() {
+export function useDemoRuntime(initialScenario = 'navigation-injection') {
   const [health, setHealth] = useState<Health | null>(null);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [scenarioId, setScenarioId] = useState('reservation-injection');
+  const [scenarioId, setScenarioId] = useState(initialScenario);
   const [userRequestDrafts, setUserRequestDrafts] = useState<Record<string, string>>({});
   const [submittedUserRequest, setSubmittedUserRequest] = useState<string | null>(null);
   const [guardEnabled, setGuardEnabled] = useState(true);

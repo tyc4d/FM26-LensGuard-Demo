@@ -1,5 +1,25 @@
 export type SourceType = 'user' | 'camera' | 'model' | 'system';
-export type Authority = 'task' | 'observation' | 'delegated' | 'none';
+export type Authority = 'task' | 'observation' | 'evidence' | 'delegated' | 'none';
+export type SemanticRole = 'observation' | 'entity' | 'instruction' | 'instruction_derived' | 'unknown';
+export type ValueUse = 'INFORMATIONAL_OUTPUT' | 'SIDE_EFFECT_ARGUMENT';
+export interface GroundedClaim { predicate: string; value: string }
+export interface Grounding { status: string; method?: string; [key: string]: unknown }
+export interface UserDelegation {
+  source: 'user'; tool: string; argument: string; semantic_role?: SemanticRole;
+  predicate?: string; scope?: string; explicit?: boolean;
+  target?: string; request_quote?: string;
+}
+export interface SemanticRegion {
+  id: string; content: string; source: SourceType; semantic_role: SemanticRole;
+  grounded_claim: GroundedClaim | null; grounding: Grounding | null;
+  requested_behavior?: string | Record<string, unknown> | null;
+  lineage: string[]; authority: 'EVIDENCE' | 'NONE';
+  status: 'RETAIN' | 'DENY_INSTRUCTION_INFLUENCE' | 'UNSUPPORTED';
+}
+export interface FinalAnswer {
+  text: string; value: string; grounded_claim: GroundedClaim | null; evidence_ids: string[];
+  quoted_instruction_ids?: string[];
+}
 
 export interface ProvenanceValue {
   id: string;
@@ -9,6 +29,10 @@ export interface ProvenanceValue {
   trust: 'trusted' | 'untrusted' | 'conditional';
   authority: Authority[];
   lineage: string[];
+  semantic_role?: SemanticRole;
+  grounded_claim?: GroundedClaim | null;
+  grounding?: Grounding | null;
+  delegation?: UserDelegation | null;
 }
 
 export interface DetectedRegion {
@@ -20,6 +44,7 @@ export interface DetectedRegion {
 }
 
 export interface ProposedAction {
+  use?: ValueUse;
   validation_status?: 'valid' | 'invalid';
   id: string;
   tool: string;
@@ -28,6 +53,7 @@ export interface ProposedAction {
 }
 
 export interface PolicyDecision {
+  use?: ValueUse;
   result: 'allow' | 'block';
   rule_id: string;
   affected_argument: string;
@@ -77,6 +103,13 @@ export interface RunOutcome {
 }
 
 export interface RunState {
+  semantic_regions?: SemanticRegion[];
+  retained_evidence_ids?: string[];
+  denied_instruction_ids?: string[];
+  user_intent?: Record<string, unknown>;
+  delegation?: UserDelegation | null;
+  final_answer?: FinalAnswer | null;
+  argument_decisions?: Array<PolicyDecision & { value: string; source_id: string; semantic_role: SemanticRole }>;
   runtime?: 'mock' | 'prototype';
   error_code?: string | null;
   validation_issues?: Array<{ argument: string; kind: 'missing' | 'invalid'; message: string }>;

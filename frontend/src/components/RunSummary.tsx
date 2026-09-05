@@ -1,5 +1,6 @@
 import type { RunState, Scenario } from '../types';
 import { directionLabel, displayLabel } from '../labels';
+import { isInformational } from '../story';
 
 export function presentRun(run: RunState | null, active: boolean) {
   if (run?.status === 'failed' && run.error_code === 'reservation_details_missing') return {
@@ -27,6 +28,11 @@ export function presentRun(run: RunState | null, active: boolean) {
     subtitle: '請重設後再次分析此情境。', reason: run.error || '執行服務無法完成此次分析。',
   };
   const outcome = run?.outcome;
+  if (isInformational(run) && outcome) return {
+    tone: outcome.status, status: outcome.status === 'allowed' ? '回答已允許' : outcome.status === 'blocked' ? '回答缺少證據' : '回答結果',
+    headline: run?.final_answer?.text || '本次未提供回答。', subtitle: run?.final_answer?.evidence_ids.length ? '回答附有場景證據。' : '本次回答未附場景證據。',
+    reason: outcome.detail,
+  };
   if (run?.runtime === 'prototype' && outcome && outcome.status !== 'executed') return {
     tone: outcome.status, status: displayLabel(outcome.status),
     headline: outcome.status === 'allowed' ? '這次行動被允許' : 'LensGuard 暫停了這次行動',
@@ -43,7 +49,7 @@ export function presentRun(run: RunState | null, active: boolean) {
   if (outcome?.status === 'allowed') return {
     tone: 'allowed', status: '已允許', headline: '這次行動被允許',
     subtitle: '使用者已明確授權使用相機觀察到的電話號碼。',
-    reason: '使用者的明確授權允許此行動採用相機觀察到的值。',
+    reason: run?.decision?.reason || outcome.detail,
   };
   if (outcome?.status === 'executed') return {
     tone: outcome.attack_success ? 'compromised' : 'executed', status: '已模擬執行',
@@ -74,21 +80,22 @@ const stageLabels: Record<string, string> = {
 
 export function RunSummary({ run, scenario, userRequest, active }: { run: RunState | null; scenario?: Scenario; userRequest?: string; active: boolean }) {
   const view = presentRun(run, active);
+  const informational = isInformational(run);
   const action = run?.action;
   const actionText = action ? `${displayLabel(action.tool)}(${Object.values(action.arguments).map((value) => value.value).join(', ')})` : null;
   return <aside className={`run-summary result-${view.tone}`} aria-label="行動摘要">
     <div className="stage-request"><p className="eyebrow">使用者請求</p><p className="user-request" lang="zh-Hant">{userRequest ?? scenario?.user_request ?? '正在載入情境…'}</p></div>
-    <div className="summary-action"><p className="eyebrow">行動提案</p><p className={`action-expression ${action ? '' : 'awaiting-action'}`}>{actionText || (run?.status === 'failed' ? '沒有有效行動。' : '等待分析。')}</p></div>
+    <div className="summary-action"><p className="eyebrow">{informational ? '資訊回答' : '行動提案'}</p><p className={`action-expression ${action ? '' : 'awaiting-action'}`}>{informational ? run?.final_answer?.text || actionText : actionText || (run?.status === 'failed' ? '沒有有效行動。' : '等待分析。')}</p></div>
     <div className="summary-decision" data-testid="decision-result" aria-live="polite">
       <p className="eyebrow">{active ? '進行中' : '結果'}</p>
       <p className="result-label">{view.status}</p>
       <p className="decision-reason">{view.reason}</p>
       {active && <p className="stage-progress" role="status">{stageLabels[run?.stage || ''] || '正在開始分析'}</p>}
-      {run?.outcome && <p className="simulation-note">僅模擬執行・未採取外部行動</p>}
+      {run?.outcome && !informational && <p className="simulation-note">僅模擬執行・未採取外部行動</p>}
     </div>
     {run?.outcome && <div className="outcome-note" data-testid="outcome">
       {run.outcome.attack_success !== null && <p>攻擊結果：<strong>{run.outcome.attack_success ? '攻擊成功' : '攻擊已阻止'}</strong></p>}
-      {run.outcome.result && <p>{run.scenario_id === 'navigation-injection' ? '方向結果' : run.outcome.status === 'executed' ? '模擬採用值' : '已授權的值'}：<strong className="mono">{run.scenario_id === 'navigation-injection' ? directionLabel(run.outcome.result) : run.outcome.result}</strong></p>}
+      {run.outcome.result && <p>{informational ? '方向結果' : run.outcome.status === 'executed' ? '模擬採用值' : '已授權的值'}：<strong className="mono">{informational ? directionLabel(run.outcome.result) : run.outcome.result}</strong></p>}
     </div>}
   </aside>;
 }
