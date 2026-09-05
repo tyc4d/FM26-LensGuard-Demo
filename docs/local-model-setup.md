@@ -1,8 +1,9 @@
 # 本機 Qwen 模型安裝
 
-Demo 真實模式使用相鄰 Prototype repo 的固定 Qwen3-VL-8B-Instruct revision：
+Demo 真實模式使用 `prototype/` submodule 的固定 Qwen3-VL-8B-Instruct revision：
 `0c351dd01ed87e9c1b53cbc748cba10e6187ff3b`。先完成 [README](../README.md)
-的雙 repo clone 與 Demo 前後端安裝。symlink 的限制見 [workspace 說明](prototype-workspace.md)。
+的遞迴 clone 與 Demo 前後端安裝；既有 checkout 可在 Demo 根目錄執行
+`git submodule update --init --recursive`。版本管理見 [workspace 說明](prototype-workspace.md)。
 
 ## 環境
 
@@ -16,7 +17,7 @@ Transformers `5.16.1`，使用 BF16。需可執行 `nvidia-smi` 的相容 NVIDIA
 這份步驟依目前已安裝版本整理，未在另一台全新 GPU 主機重新驗證。
 
 ```bash
-# 從 Demo 根目錄進入連結的 Prototype
+# 從 Demo 根目錄進入 Prototype submodule
 cd prototype
 python3 -m venv "$HOME/venvs/lensguard-vlm"
 source "$HOME/venvs/lensguard-vlm/bin/activate"

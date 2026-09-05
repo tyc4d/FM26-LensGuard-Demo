@@ -36,7 +36,7 @@ flowchart TD
 
 前端負責輸入與展示，Demo 後端管理請求、記憶體狀態與 SSE。Prototype 使用同一個常駐 Qwen 模型完成三次獨立對話，程式再檢查引用與授權條件。Guard OFF 比較則使用一次原始模型提議。**目前所有撥號都只模擬，沒有串接電信或其他外部行動服務。**
 
-系統沒有資料庫，重啟後記憶體結果會清除。Hugging Face 用於預先下載模型；真實推論在本機 GPU 執行，不需要雲端模型 API。Demo 的 [`prototype`](docs/prototype-workspace.md) 是指向相鄰 Prototype repo 的相對 symlink，兩邊保留獨立 Git 歷史並透過 HTTP 協作。完整流程見 [系統架構](docs/architecture.md)及[任務與引用約束](docs/task-boundary.md)。
+系統沒有資料庫，重啟後記憶體結果會清除。Hugging Face 用於預先下載模型；真實推論在本機 GPU 執行，不需要雲端模型 API。Demo 的 [`prototype`](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/855630ed409ff4e71c2c30d21f1ba0d241c9c450) 是 Git submodule，連到獨立 Prototype repo 的固定 commit；GitHub 檔案列表可直接點入該版本。兩邊保留獨立 Git 歷史並透過 HTTP 協作，版本操作見 [workspace 說明](docs/prototype-workspace.md)。完整流程見 [系統架構](docs/architecture.md)及[任務與引用約束](docs/task-boundary.md)。
 
 ## 使用技術
 
@@ -53,11 +53,10 @@ flowchart TD
 
 以下適用 Linux/macOS。準備 Git、Python 3.12+、Node.js 22.12+ 與 npm。**Mock 模式不需 GPU、模型權重或 API 金鑰**，可先完成作品流程體驗。
 
-先在同一個父目錄取得兩個 repo；Demo 中的 symlink 會連到相鄰的 Prototype。若只體驗 Mock，可略過第二個 clone。
+使用 `--recurse-submodules` 一併取得 `prototype/` 的固定版本。若只體驗 Mock，可省略此參數；之後需要真實推論時，在 Demo 根目錄執行 `git submodule update --init --recursive`。
 
 ```bash
-git clone https://github.com/tyc4d/FM26-LensGuard-Demo.git
-git clone --branch phase3-direct-physical-pilot-v1 https://github.com/tyc4d/FM26-LensGuard-Prototype.git
+git clone --recurse-submodules https://github.com/tyc4d/FM26-LensGuard-Demo.git
 cd FM26-LensGuard-Demo
 
 # 建立 Demo 後端環境
@@ -131,12 +130,18 @@ npm --prefix frontend run build
 
 ## 第三方服務、資料與素材
 
+以下涵蓋目前 Demo 與 Prototype 研究實際使用過的 local／cloud 模型。目前真實 Demo 使用本機 Qwen3-VL 8B；其餘模型的用途、實驗紀錄與 SDK 來源見 [完整第三方清單](docs/third-party.md#使用過的模型與雲端-api)。
+
 | 項目 | 來源與連結 | 授權方式與使用範圍 |
 | --- | --- | --- |
-| Qwen3-VL-8B-Instruct | [官方模型頁](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | Apache-2.0；權重另外下載，未納入 repo |
+| Local：Qwen3-VL-8B-Instruct | [Qwen/Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | Apache-2.0；目前 Demo 推論與本機研究基準；權重另外下載 |
+| Local：Gemma 3 4B IT | [google/gemma-3-4b-it](https://huggingface.co/google/gemma-3-4b-it) | [Gemma Terms of Use](https://ai.google.dev/gemma/terms)；本機研究基準與早期 Demo 整合；下載需接受模型條款 |
+| Local：MiniCPM-V 4.5 | [openbmb/MiniCPM-V-4_5](https://huggingface.co/openbmb/MiniCPM-V-4_5) | Apache-2.0；本機多模態研究基準；權重另外下載 |
+| Cloud：OpenAI `gpt-5.6-sol` | [OpenAI API](https://platform.openai.com/docs/api-reference/responses) | [OpenAI Services Agreement](https://openai.com/policies/services-agreement/)；雲端研究比較，透過 Responses API 呼叫 |
+| Cloud：Google `gemini-3.1-flash-lite` | [官方模型頁](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite) | [Gemini API 條款](https://ai.google.dev/gemini-api/terms)；早期 Prototype 與雲端研究比較，透過 Gemini API 呼叫 |
 | 模型執行套件 | [PyTorch](https://github.com/pytorch/pytorch/blob/main/LICENSE)、[Transformers](https://github.com/huggingface/transformers/blob/main/LICENSE)、[Accelerate](https://github.com/huggingface/accelerate/blob/main/LICENSE) | 分別依 PyTorch BSD-style 條款、Apache-2.0、Apache-2.0；完整來源見下方清單 |
 | 前後端與開發工具 | [第三方套件清單](docs/third-party.md) | 逐項列出 MIT、BSD、Apache 等上游授權；依賴仍適用各自條款 |
-| Prototype 原始碼 | [LensGuard Prototype](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/phase3-direct-physical-pilot-v1) | MIT；保留獨立 repo，由相對 symlink 連結 |
+| Prototype 原始碼 | [LensGuard Prototype](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/855630ed409ff4e71c2c30d21f1ba0d241c9c450) | MIT；保留獨立 repo，由 Git submodule 連結並固定 commit |
 | 示範情境、圖形與圖示 | [情境 JSON](mock-data/scenarios.json)、[前端原始碼](frontend/src)、[favicon](frontend/public/favicon.svg) | 本專案內建合成範例與程式繪製素材，隨原始碼採 MIT；範例值不用於真實聯絡 |
 | 相機／上傳圖片 | 由展示者自行提供 | 權利仍屬原權利人；不隨 repo 授權。請使用可公開或自行製作的示範素材 |
 | 實體研究照片與衍生紀錄 | [資料處理說明](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/phase3-direct-physical-pilot-v1/docs/physical_reviewed_evaluation.md) | 未取得公開散布授權的資料與含聯絡資訊的本次衍生紀錄保留本機，不納入繳交 |

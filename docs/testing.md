@@ -1,5 +1,13 @@
 # Minimal four-state presentation — 2026-09-05
 
+## 2026-09-06：GitHub submodule 與完整模型來源
+
+- `prototype` 從 `120000` symlink 改為 `160000` gitlink；`.gitmodules` 使用 Prototype 的 GitHub HTTPS URL，固定於 `855630ed409ff4e71c2c30d21f1ba0d241c9c450`。GitHub 可由檔案列表前往對應 repo commit。
+- 在暫存 repo 套用待提交修改後，實測全新 `git clone --recurse-submodules`，以及舊 symlink checkout 的 `git pull --ff-only` 加 `git submodule update --init --recursive`。兩條路徑皆從 GitHub 取得固定版本、工作樹乾淨且 runtime 入口存在；舊 checkout 相鄰目錄的本機檔案保留。
+- README、workspace、模型安裝及維運文件已改為 submodule 流程。49 個文件相對連結與 Prototype GitHub 路徑核對通過，Git whitespace 檢查通過；Docker context 繼續排除 `prototype`。
+- 第三方清單補齊 Qwen3-VL 8B、Gemma 3 4B、MiniCPM-V 4.5、OpenAI `gpt-5.6-sol`、Gemini `gemini-3.1-flash-lite`，以及 OpenAI／Google Gen AI Python SDK。模型名稱依 Prototype 報告與 manifest 核對，授權與服務條款連至官方來源；註明目前 Demo 與研究用途。
+- 本次修改限 repo 連結及文件，未重跑模型推論、應用程式測試或部署；下方舊 symlink 紀錄保留為歷史，連結方式以上述 submodule 為準。
+
 ## 2026-09-06：黑客松 README 與 repo 連結
 
 - README 依繳交格式排列十個章節，提供 Mock 重現步驟、真實 Qwen 安裝文件、Mermaid 架構圖、第三方來源與 MIT LICENSE。團隊、評選影片、公開網址與 Sponsor 資訊仍待提供。

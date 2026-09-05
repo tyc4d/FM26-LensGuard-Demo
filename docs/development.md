@@ -309,7 +309,7 @@ Before startup inspect `nvidia-smi` and running experiment command lines. Phase 
 The service's web-only dependencies are separate from model packages. On the known verified environment, install only the missing transport packages (no dependency/model upgrades):
 
 ```bash
-cd /home/tyc4d/FM26-LensGuard-Prototype
+cd /home/tyc4d/FM26-LensGuard-Demo/prototype
 source /home/tyc4d/venvs/lensguard-vlm/bin/activate
 python -m pip install --no-deps -r requirements/demo-runtime.txt
 ```
@@ -323,7 +323,7 @@ Use three terminals. Do not start duplicate runtimes; first inspect `curl http:/
 1. Prototype:
 
 ```bash
-cd /home/tyc4d/FM26-LensGuard-Prototype
+cd /home/tyc4d/FM26-LensGuard-Demo/prototype
 source /home/tyc4d/venvs/lensguard-vlm/bin/activate
 python -m prototype_demo_server --model qwen3vl-8b --host 127.0.0.1 --port 8010
 ```
@@ -387,7 +387,7 @@ The local VLM performs scene extraction; deterministic rules identify supported 
 
 The base Compose file runs mock mode. Real mode requires the host Prototype runtime and `docker-compose.live.yml`, which connects the container backend to the runtime on host loopback. This override is Linux-specific and requires Docker Compose 2.24.4+.
 
-First check `curl http://127.0.0.1:8010/health` and existing processes. Reuse an existing Prototype runtime; do not start a second copy. For a managed service on this server, [scripts/lensguard-prototype.service](../scripts/lensguard-prototype.service) uses the existing `%h/venvs/lensguard-vlm` Python environment and `%h/FM26-LensGuard-Demo/prototype` linked checkout, where `%h` is your home directory. It does not install or change the model stack. Check the [GPU prerequisites](#prerequisites-and-gpu-safety) before use.
+First check `curl http://127.0.0.1:8010/health` and existing processes. Reuse an existing Prototype runtime; do not start a second copy. For a managed service on this server, [scripts/lensguard-prototype.service](../scripts/lensguard-prototype.service) uses the existing `%h/venvs/lensguard-vlm` Python environment and `%h/FM26-LensGuard-Demo/prototype` submodule checkout, where `%h` is your home directory. Initialize the pinned checkout with `git submodule update --init --recursive` from the Demo root before starting it. It does not install or change the model stack. Check the [GPU prerequisites](#prerequisites-and-gpu-safety) before use.
 
 If no Prototype runtime is already running, install the user service once from the **Demo repository root**:
 

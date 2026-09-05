@@ -19,8 +19,9 @@ flowchart TD
 
 ## Repo 與執行邊界
 
-Demo 的 `prototype` symlink 指向旁邊的 Prototype repo；兩邊保留獨立 Git
-歷史與 Python 環境，操作方式見 [workspace 說明](prototype-workspace.md)。
+Demo 的 `prototype` 是連到 [Prototype repo](https://github.com/tyc4d/FM26-LensGuard-Prototype)
+的 Git submodule；Demo 記錄固定 commit，兩邊保留獨立 Git 歷史與 Python
+環境，操作方式見 [workspace 說明](prototype-workspace.md)。
 `backend/app/prototype_provider.py` 透過版本化 HTTP 合約轉接 Prototype 回應，
 沒有跨 repo Python import。模型載入、圖片前處理、提示、解析與授權檢查
 由 Prototype 負責。Demo 管理 HTTP/SSE、快照、展示及模擬動作。

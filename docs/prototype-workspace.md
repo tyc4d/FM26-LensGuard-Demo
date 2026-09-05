@@ -1,55 +1,78 @@
 # Prototype 連結與版本管理
 
-Demo 根目錄的 `prototype` 是 Git 追蹤的相對符號連結（symlink）：
+Demo 根目錄的 `prototype` 是 Git submodule，GitHub 檔案列表會顯示
+`prototype @ <commit>`，點擊即可前往 [Prototype repo](https://github.com/tyc4d/FM26-LensGuard-Prototype)
+的對應版本。
 
 ```text
-工作目錄/
-├── FM26-LensGuard-Demo/
-│   └── prototype -> ../FM26-LensGuard-Prototype
-└── FM26-LensGuard-Prototype/
-    └── .git/
+FM26-LensGuard-Demo/
+├── .gitmodules    # Prototype 的 GitHub URL 與開發分支
+└── prototype/    # 獨立 Prototype repo 的固定 commit
 ```
 
-兩個 repo 各自保留 commit、branch 和 remote。透過 `prototype/` 編輯的檔案
-實際存於 Prototype，必須在 Prototype 提交與推送。Demo 只追蹤連結本身，
-不會把 Prototype 內容複製進自己的 Git 歷史。此連結不會自動下載或鎖定版本。
+[`.gitmodules`](../.gitmodules) 設定 HTTPS repo URL 與
+`phase3-direct-physical-pilot-v1` 分支；Demo 的 Git tree 以 `160000`
+gitlink 記錄固定 commit。兩個 repo 保留獨立 Git 歷史，Demo 不把
+Prototype 原始碼複製進自己的歷史。一般 clone／update 會取得 Demo 記錄的
+commit，不會自動追到分支最新版本。
 
 ## 首次取得
 
-從同一個父目錄取得兩個 repo；若已經存在，直接使用原 checkout。
-
 ```bash
-git clone https://github.com/tyc4d/FM26-LensGuard-Demo.git
-git clone --branch phase3-direct-physical-pilot-v1 https://github.com/tyc4d/FM26-LensGuard-Prototype.git
+git clone --recurse-submodules https://github.com/tyc4d/FM26-LensGuard-Demo.git
 cd FM26-LensGuard-Demo
-readlink prototype
-git -C prototype status --short --branch
+git submodule status
 ```
 
-Prototype 的 Demo runtime 位於 `phase3-direct-physical-pilot-v1` 分支。
-繳交驗證版本記錄於 [測試紀錄](testing.md)。要重現固定版本，請在乾淨的
-Prototype checkout 中以 `git switch --detach <commit>` 選取該版本；
-日常開發使用原分支即可。
-
-Linux/macOS checkout 會建立符號連結。Windows 需啟用 Developer Mode 或
-建立 symlink 的權限，並用 `git -c core.symlinks=true clone ...` 取得 Demo；
-否則 Git 可能把連結存成文字檔。GitHub 網頁不會把相對 symlink 展開成另一個
-repo，請使用 [Prototype repo](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/phase3-direct-physical-pilot-v1)
-瀏覽原始碼。
-
-## 開發與執行
+已取得 Demo、但尚未初始化 submodule 時：
 
 ```bash
-# 從 Demo 根目錄操作兩個獨立工作樹
+# 從 Demo 根目錄執行
+git submodule update --init --recursive
+git -C prototype rev-parse HEAD
+```
+
+目前固定於 [`855630ed409ff4e71c2c30d21f1ba0d241c9c450`](https://github.com/tyc4d/FM26-LensGuard-Prototype/commit/855630ed409ff4e71c2c30d21f1ba0d241c9c450)，
+驗證結果見 [測試紀錄](testing.md)。submodule checkout 預設為 detached HEAD，
+適合重現該版本；開發前需先切換或建立分支。Mock 模式可省略 submodule 下載。
+
+## 從舊版 symlink 升級
+
+在乾淨的 Demo checkout 更新後初始化：
+
+```bash
+git pull --ff-only
+git submodule update --init --recursive
+```
+
+舊版 `prototype -> ../FM26-LensGuard-Prototype` 會換成 submodule 目錄。
+原本相鄰的 `FM26-LensGuard-Prototype` checkout 及其中的本機檔案仍保留；
+新的 `prototype/` 是獨立 checkout，兩個工作目錄的未提交修改不會互相同步。
+submodule 不需要作業系統的 symlink 權限。
+
+## 開發與更新版本
+
+```bash
+# 從 Demo 根目錄檢查兩個獨立工作樹
 git status
 git -C prototype status
+
+# 開發 Prototype 前切換至開發分支
+git -C prototype switch phase3-direct-physical-pilot-v1
 ```
 
-Demo backend 仍透過 `PROTOTYPE_RUNTIME_URL` 呼叫獨立 HTTP 服務。
+Prototype 的修改需在 Prototype repo 提交與推送。要讓 Demo 採用新版本，
+先確認該 Prototype commit 已推送且通過驗證，再在 Demo 執行
+`git add prototype` 並提交版本指標更新。`.gitmodules` 的 `branch` 只供
+明確執行 `git submodule update --remote prototype` 時選擇追蹤分支。
+日常更新 Demo 後執行 `git submodule update --init --recursive`，重現 Demo
+記錄的 commit。
+
+Demo backend 透過 `PROTOTYPE_RUNTIME_URL` 呼叫獨立 HTTP 服務。
 模型程式與 Python 環境由 Prototype 管理。Docker build context 明確排除
-`prototype`，模型在主機執行；Mock 模式可在沒有 Prototype checkout 時獨立運作。
+`prototype`，模型在主機執行。
 
 `scripts/lensguard-prototype.service` 的工作目錄使用
-`%h/FM26-LensGuard-Demo/prototype`。模型環境仍是既有的
+`%h/FM26-LensGuard-Demo/prototype`。模型環境仍是
 `%h/venvs/lensguard-vlm`。非此目錄配置請調整 unit 後再安裝；修改檔案不會
-自動重啟已在執行的模型服務。完整操作見 [維運指南](development.md#docker-and-real-mode)。
+自動重啟模型服務。完整操作見 [維運指南](development.md#docker-and-real-mode)。

@@ -1,0 +1,4 @@
+[submodule "prototype"]
+	path = prototype
+	url = https://github.com/tyc4d/FM26-LensGuard-Prototype.git
+	branch = phase3-direct-physical-pilot-v1
