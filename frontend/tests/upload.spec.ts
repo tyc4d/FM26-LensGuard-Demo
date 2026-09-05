@@ -26,22 +26,30 @@ test('image preview supports mock analysis and survives Reset and navigation', a
   expect(uploads).toHaveLength(0);
   await expect(page.getByText('上傳的圖片僅保留在此瀏覽器', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '開始分析' }).click();
+  await page.getByRole('button', { name: '檢視細節', exact: true }).click();
+  await page.getByText('查看技術細節', { exact: true }).click();
   await expect(page.getByTestId('decision-result')).toContainText('已阻擋');
-  await expect(page.locator('.camera-region')).toHaveCount(2);
+  await expect(page.locator('.details-drawer-facts')).toContainText(/模擬區域\s*2/);
+  await expect(page.getByRole('img', { name: '本次分析擷取的原始影像', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '關閉細節', exact: true }).click();
   await page.getByRole('button', { name: '重設', exact: true }).click();
   await expect(page.getByRole('img', { name: '已上傳的觀察圖片：scene.png' })).toBeVisible();
-  await expect(page.locator('.camera-region')).toHaveCount(0);
+  await expect(page.locator('.story-frame-viewport img')).toHaveCount(0);
   await page.getByRole('link', { name: '系統架構', exact: true }).click();
-  await page.getByRole('link', { name: '即時展示', exact: true }).click();
+  await page.getByRole('link', { name: '互動展示', exact: true }).click();
   await expect(page.getByRole('img', { name: '已上傳的觀察圖片：scene.png' })).toBeVisible();
 });
 
-test('replacing and removing images releases object URLs and clears old analysis', async ({ page }) => {
+test('reset restores image controls; replacing and removing images release object URLs', async ({ page }) => {
   await page.goto('/');
   await chooseImage(page);
   const oldUrl = await page.locator('.uploaded-image').getAttribute('src');
   await page.getByRole('button', { name: '開始分析' }).click();
+  await page.getByRole('button', { name: '檢視細節', exact: true }).click();
+  await page.getByText('查看技術細節', { exact: true }).click();
   await expect(page.getByTestId('decision-result')).toContainText('已阻擋');
+  await page.getByRole('button', { name: '關閉細節', exact: true }).click();
+  await page.getByRole('button', { name: '重設', exact: true }).click();
   await chooseImage(page, 'replacement.png');
   await expect(page.getByTestId('decision-result')).toContainText('等待分析');
   expect(await page.evaluate(async (url) => { try { await fetch(url!); return true; } catch { return false; } }, oldUrl)).toBe(false);

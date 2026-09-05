@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openDetails } from './presentation-helpers';
 
 test('same-origin API and progressive SSE work in a secure camera context', async ({ page, baseURL }) => {
   const apiRequests: string[] = [];
@@ -11,11 +12,12 @@ test('same-origin API and progressive SSE work in a secure camera context', asyn
   expect(await page.evaluate(() => window.isSecureContext)).toBe(true);
   const health = await page.evaluate(async () => (await fetch('/api/health')).json());
   expect(health.status).toBe('ok');
-  await page.getByText('查看事件時間軸', { exact: false }).click();
   await page.getByRole('button', { name: '開始分析' }).click();
+  await openDetails(page);
+  await page.getByText('查看事件時間軸', { exact: false }).click();
   await expect(page.getByRole('cell', { name: '收到影像', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: '行動已阻擋', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '開始分析' })).toBeEnabled();
+  await expect(page.locator('[role=switch]')).toBeEnabled();
   await expect(page.locator('.timeline tbody tr')).toHaveCount(7);
   expect(apiRequests.some((url) => url.endsWith('/events'))).toBe(true);
   expect(apiRequests.every((url) => new URL(url).origin === new URL(baseURL!).origin)).toBe(true);

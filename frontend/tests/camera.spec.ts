@@ -85,11 +85,15 @@ test('Reset and navigation preserve the active camera while clearing analysis', 
   ));
 
   await page.getByRole('button', { name: '開始分析', exact: false }).click();
+  await page.getByRole('button', { name: '檢視細節', exact: true }).click();
+  await page.getByText('查看技術細節', { exact: true }).click();
   await expect(page.getByTestId('decision-result')).toContainText('已阻擋');
-  await expect(page.locator('.camera-region').first()).toBeVisible();
+  await expect(page.locator('.details-drawer-facts')).toContainText(/模擬區域\s*2/);
+  await expect(page.getByRole('img', { name: '本次分析擷取的原始影像', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '關閉細節', exact: true }).click();
   await page.getByRole('button', { name: '重設', exact: true }).click();
   await expect(page.getByTestId('decision-result')).toContainText('等待分析');
-  await expect(page.locator('.camera-region')).toHaveCount(0);
+  await expect(page.locator('.story-frame-viewport img')).toHaveCount(0);
   await expect(page.getByTestId('status-camera')).toContainText('使用中');
 
   await page.getByRole('link', { name: '系統架構', exact: true }).click();
@@ -97,7 +101,7 @@ test('Reset and navigation preserve the active camera while clearing analysis', 
   await expect(page.getByTestId('status-camera')).toContainText('使用中');
   await page.getByRole('link', { name: '評估', exact: true }).click();
   await expect(page.getByText('第 3.6 階段的評估結果將整合於此。', { exact: true })).toBeVisible();
-  await page.getByRole('link', { name: '即時展示', exact: true }).click();
+  await page.getByRole('link', { name: '互動展示', exact: true }).click();
   await expect(page.getByRole('button', { name: '停止相機', exact: true })).toBeVisible();
   expect(await page.locator('video').evaluate((element: HTMLVideoElement) => (
     (element.srcObject as MediaStream).id

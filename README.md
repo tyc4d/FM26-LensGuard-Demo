@@ -16,12 +16,13 @@ The camera, UI, FastAPI, and SSE pipeline are live. In `LENSGUARD_RUNTIME=protot
 
 ## What the demo includes
 
-- A large, dark camera stage with a concise action summary, oversized result headlines, and prominent scenario/guard/run controls.
+- A cinematic stage that follows one analysis from a frozen image through available observations, proposed values, provenance, authorization, and the actual result.
 - A real browser camera with start/stop controls, device selection, and permission/error handling.
 - Local image upload with JPEG/PNG/WebP preview, replacement/removal, and a return to live camera.
 - Three deterministic scenarios with mock region overlays clearly identified as scenario data.
-- A Guard ON/OFF comparison using the same proposed action and scenario input.
-- Structured, provenance-bearing action arguments and a compact decision trace, including a separate user-delegation path. Provenance, technical details, event history, and raw JSON are collapsed by default.
+- A Guard ON/OFF comparison using two sequential requests with the same frozen image, user request, and scenario. Each response retains its own proposed action and result.
+- Automatic presentation pacing, manual previous/next controls, keyboard shortcuts, and replay of already received results without another model request.
+- Structured, provenance-bearing action arguments and a decision trace, including a separate user-delegation path. A details drawer exposes the original evidence, diagnostics, event history, and raw JSON.
 - Backend-generated event timestamps streamed progressively through Server-Sent Events (SSE).
 - 重設, backend connection handling, and Architecture/Evaluation views.
 
@@ -44,6 +45,8 @@ Demo React → Demo FastAPI → Prototype Runtime (loopback HTTP)
 | Action sink | Simulated | Simulated |
 
 See [architecture and integration notes](docs/architecture.md) and the [runtime contract](docs/api-contract.md).
+
+The cinematic presentation is a frontend layer over the existing `RunState` contract. It does not change model loading, prompts, parsing, authorization, or the runtime API. Missing detections, provenance, and decisions remain missing; presentation stages do not create evidence.
 
 ## Directory structure
 
@@ -206,9 +209,9 @@ docker compose down
 
 Use the [HTTPS setup](#https-for-camera-access) for LAN access, or `http://localhost:5173` on the presentation computer. Plain HTTP on a LAN IP cannot provide the required secure context.
 
-Click **啟動相機** and approve the browser permission prompt. Available devices appear after permission is granted; front/back choices depend on the browser and connected hardware. If access is denied, enable camera access in the browser's site settings and retry. A missing or busy camera is reported in the Observation panel, and the mock analysis remains usable.
+Click **啟動相機** and approve the browser permission prompt. Available devices appear after permission is granted; front/back choices depend on the browser and connected hardware. If access is denied, enable camera access in the browser's site settings and retry. A missing or busy camera is reported beside the camera controls, and the mock analysis remains usable.
 
-**停止相機** releases the active media tracks. **重設** clears the current run and event stream while preserving camera state. Frames are not uploaded or stored.
+**停止相機** releases the active media tracks. **重設** clears the current run, comparison, presentation, and event stream while preserving camera state. The preview does not continuously upload video; real analysis sends a frozen snapshot only when requested.
 
 Use **上傳圖片** below the camera preview to choose a JPEG, PNG, or WebP (up to 10 MB and 40 megapixels). The image appears in the stage without cropping. A successful upload stops the live camera and clears the previous analysis. **更換圖片** selects another file; **移除圖片** clears the preview. **啟動相機** switches back once camera access succeeds. 重設 and page navigation preserve the current image.
 
@@ -216,7 +219,15 @@ In mock mode uploaded images stay in the browser and 開始分析 uses the selec
 
 ## Running the scenarios
 
-Select a scenario, choose the guard setting, then click **開始分析**. Events arrive one stage at a time, about 150–400 ms apart. The proposal, provenance trace, and final decision appear as their corresponding stages complete. Controls that would change run inputs are disabled during an active run. Re-run the same scenario with the opposite guard setting to compare outcomes.
+Select a scenario, review the trusted user request, choose the guard setting, then click **開始分析**. In real mode, the stage uses the captured image and received run data to progress through capture, perception, proposed meaning, provenance, action proposal, authorization, and a blocked, allowed, simulated-execution, or failed result. Only stages supported by received data become available. The perception stage can explain that region detection is unavailable; it does not manufacture OCR boxes or confidence scores. A failed analysis can reach its failure result without a policy decision.
+
+Automatic playback advances approximately every two seconds when the next stage is available, taking about twelve seconds for a full sequence after its data is ready. This is presentation pacing, separate from model inference and backend event timing. Playback waits for data, stops at the result, and respects manual navigation when later updates arrive. Input-changing controls are disabled while requests are active.
+
+Use **上一步** / **下一步** to pause and move through available stages, **播放** / **暫停** to control playback, and **重播** to replay the current received record. Keyboard shortcuts in the demo are **←**, **→**, **Space**, and **R**, respectively. Shortcuts do not interrupt text entry or the open details drawer; Space retains normal button/link behavior. Browsers requesting reduced motion start with manual playback. Opening the details drawer pauses the presentation and exposes actual action fields, provenance, policy, diagnostics, and event history.
+
+Click **建立防護比較** to freeze one image and the exact user request, then submit two actual requests in sequence: LensGuard off, then on. The real runtime receives the same image bytes and request text for both calls, but the model may produce different proposals. The first record remains on stage while the second request runs. At the first result, use **下一步** to view the guarded record; the comparison summary appears after that record reaches its result. **重播比較** reuses both cached records, and **重播** / **R** reuses the current one. Neither replay submits another request. Failures remain failures in the comparison; no missing outcome is replaced with an attack-success or defense-success claim.
+
+The table below describes the deterministic **mock fixtures**, not guaranteed real-model responses. Mock comparisons still make two backend requests, but use scenario fixtures without uploading image bytes. For an explicit fixture fallback, select `LENSGUARD_RUNTIME=mock` in the backend configuration or use the base Compose configuration; see [Docker Compose](#docker-compose). Prototype errors never silently switch to mock mode.
 
 | Scenario | User request and proposed action | Guard ON | Guard OFF |
 | --- | --- | --- | --- |
@@ -226,7 +237,7 @@ Select a scenario, choose the guard setting, then click **開始分析**. Events
 
 The delegation scenario demonstrates that the decision is about authority, not blanket rejection of camera text. Guard OFF bypasses mock policy evaluation and records a simulated execution. Guard ON evaluates the provenance-bearing action. An ALLOWED result is an authorization demonstration; it does not place a call.
 
-The main headline reads **觀察眼前的場景。** before analysis, **你的 AI 被騙了** when an unguarded attack succeeds, **LensGuard 擋下了這次攻擊** when a proposed attack is blocked, and **這次行動被允許** when explicit delegation is authorized. The stage shows the proposed action and 已模擬執行／已阻擋／已允許 result. Expand **查看來源紀錄**, **查看技術細節**, **查看事件時間軸**, or **查看原始結構化行動** for the underlying evidence. Events continue arriving while their section is closed. Guard OFF on the delegation scenario is labeled as simulated execution, not an attack.
+The stage highlights an existing action argument and its source before showing authorization. A selected argument is not automatically a verified critical argument, and image-to-model transport lineage does not establish semantic grounding. The details drawer retains original model text and structured values for inspection. All action execution remains simulated.
 
 ## API endpoints
 
@@ -246,7 +257,7 @@ curl -X POST http://localhost:8000/api/run \
   -d '{"scenario_id":"reservation-injection","guard_enabled":true}'
 ```
 
-Use the returned `id` with the state or event endpoint. SSE messages are named `runtime`, carry the latest runtime event ID, and contain a complete `RunState` snapshot as JSON. The server supports `Last-Event-ID` replay and closes the stream after completion. Runtime events contain server-generated ISO timestamps; the UI formats them for display. Delays are implemented centrally in the backend, not in frontend cards.
+Use the returned `id` with the state or event endpoint. SSE messages are named `runtime`, carry the latest runtime event ID, and contain a complete `RunState` snapshot as JSON. The server supports `Last-Event-ID` replay and closes the stream after completion. Runtime events contain server-generated ISO timestamps; the UI formats them for display. Mock event delays remain centralized in the backend. Frontend presentation pacing does not change these timestamps or runtime progress. SSE recovery replay is separate from the presentation controls, which replay cached records without network requests.
 
 Frontend schemas are defined in [frontend/src/types.ts](frontend/src/types.ts); backend Pydantic schemas mirror the same conceptual contract. See [docs/api-contract.md](docs/api-contract.md) for stage ordering and payload details.
 
@@ -262,24 +273,26 @@ Frontend, from `frontend/`:
 
 ```bash
 npx playwright install chromium
-npm test
+PLAYWRIGHT_ISOLATED=true npm test
 npm run build
 ```
+
+`PLAYWRIGHT_ISOLATED=true` is recommended for UI testing. It starts a separate mock backend on port **18000** and a frontend on **15173**, with the frontend proxy directed to that backend, and never reuses existing servers. Keep those test ports free; the running Docker demo and real Prototype service can stay as configured. Plain `npm test` uses ports 8000/5173 and can reuse existing servers outside CI, so it requires those servers to match the tests' mock configuration.
 
 To run the same browser suite over HTTPS after generating and trusting certificates:
 
 ```bash
-NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" VITE_HTTPS=true npm test
+NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" VITE_HTTPS=true PLAYWRIGHT_ISOLATED=true npm test
 ```
 
-Stop any HTTP dev server on port 5173 first. `NODE_EXTRA_CA_CERTS` lets the Node-based test runner verify the development CA; the browser must independently trust it. Tests do not disable browser certificate verification. The suite defaults to HTTP when `VITE_HTTPS` is not set, even if `frontend/.env` enables HTTPS for normal development.
+`NODE_EXTRA_CA_CERTS` lets the Node-based test runner verify the development CA; the browser must independently trust it. Tests do not disable browser certificate verification. The suite defaults to HTTP when `VITE_HTTPS` is not set, even if `frontend/.env` enables HTTPS for normal development.
 
 The backend tests cover health, scenario enumeration, guarded and unguarded attacks, and explicit delegation. Frontend browser tests cover the practical UI state transitions, event-stream recovery, layout, and camera behavior.
 
-Playwright automatically starts both the FastAPI and Vite development servers and reuses existing local servers outside CI. Create `backend/.venv` and install its requirements first; the test configuration uses `backend/.venv/bin/python` by default. To use another Python environment with those dependencies installed:
+Playwright automatically starts both the FastAPI and Vite development servers. Create `backend/.venv` and install its requirements first; the test configuration uses `backend/.venv/bin/python` by default. To use another Python environment with those dependencies installed:
 
 ```bash
-PYTHON_BINARY=/absolute/path/to/python npm test
+PYTHON_BINARY=/absolute/path/to/python PLAYWRIGHT_ISOLATED=true npm test
 ```
 
 On Linux, Playwright may also require its Chromium system dependencies (`npx playwright install --with-deps chromium`). Automated camera checks use a synthetic browser video device. A physical webcam permission grant must also be checked in the browser used for the live presentation. See [validation notes](docs/testing.md) for recorded results and remaining verification limits.

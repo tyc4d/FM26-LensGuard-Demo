@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openTechnical, closeDetails, finishStory } from './presentation-helpers';
 import type { ProposedAction, RunState } from '../src/types';
 
 function prototypeRun(id: string, scenarioId = 'reservation-injection'): RunState {
@@ -46,7 +47,7 @@ for (const source of ['camera', 'uploaded_image']) {
     });
     await page.goto('/');
     await page.getByRole('textbox', { name: '你的請求' }).fill('幫我打電話訂這間餐廳');
-    await expect(page.getByRole('button', { name: '開始分析' })).toBeEnabled();
+    await expect(page.locator('[role=switch]')).toBeEnabled();
     if (source === 'camera') {
       await page.getByRole('button', { name: '啟動相機', exact: true }).click();
       await expect(page.getByRole('button', { name: '停止相機', exact: true })).toBeVisible();
@@ -63,7 +64,7 @@ for (const source of ['camera', 'uploaded_image']) {
     await page.getByRole('button', { name: '開始分析' }).click();
     await expect(page.getByRole('alert')).toContainText('無法解析模型輸出');
     expect(posts).toBe(1);
-    await page.getByText('查看技術細節', { exact: true }).click();
+    await openTechnical(page);
     await expect(page.getByText('Unparseable real response', { exact: true })).toBeVisible();
     await expect(page.locator('.camera-region')).toHaveCount(0);
   });
@@ -94,10 +95,11 @@ test('schema-invalid reservation ends SSE and shows candidate instead of waiting
   await page.getByLabel('上傳觀察圖片').setInputFiles({name:'scene.png',mimeType:'image/png',buffer:Buffer.from(bytes,'base64')});
   await page.getByRole('img',{name:'已上傳的觀察圖片：scene.png'}).waitFor();
   await page.getByRole('button',{name:'開始分析'}).click();
+  await openTechnical(page);
   await expect(page.getByTestId('decision-result')).toContainText('模型輸出無效');
-  await expect(page.getByRole('button',{name:'開始分析'})).toBeEnabled();
+  await expect(page.locator('[role=switch]')).toBeEnabled();
   await expect(page.locator('.action-expression')).toContainText('餐廳訂位');
-  await page.getByText('查看技術細節',{exact:true}).click();
+  await openTechnical(page);
   await expect(page.locator('.action-status')).toContainText('行動格式無效');
   await expect(page.getByText(/未進行授權判定：/)).toBeVisible();
   await expect(page.getByText('等待分析',{exact:true})).toHaveCount(0);
@@ -126,19 +128,20 @@ test('policy failure replaces pending authorization with a terminal result', asy
   await page.goto('/');
   await page.getByRole('textbox', { name: '你的請求' }).fill('幫我打電話訂這間餐廳');
   await uploadObservation(page);
-  await page.getByText('查看技術細節', { exact: true }).click();
   await page.getByRole('button', { name: '開始分析' }).click();
+  await openTechnical(page);
   try {
     await expect(page.locator('.action-status')).toContainText('等待授權');
-    await expect(page.getByRole('button', { name: '分析中…' })).toBeDisabled();
+    await expect(page.locator('[role=switch]')).toBeDisabled();
   } finally {
     publishFailure();
   }
+  await openTechnical(page);
   await expect(page.getByTestId('decision-result')).toContainText('未獲授權');
   await expect(page.locator('.action-status')).toContainText('未獲授權');
   await expect(page.getByText('等待授權', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '開始分析' })).toBeEnabled();
-  await expect(page.getByRole('alert')).toContainText('授權規則目前無法使用，已暫停自動執行。');
+  await expect(page.locator('[role=switch]')).toBeEnabled();
+  await expect(page.locator('[role=alert]')).toContainText('授權規則目前無法使用，已暫停自動執行。');
   await expect(page.locator('.decision-body')).toContainText('未進行判定');
   await expect(page.getByText(raw, { exact: true })).toBeVisible();
   await expect(page.getByTestId('outcome')).toHaveCount(0);
@@ -161,15 +164,19 @@ for (const guardEnabled of [true, false]) {
     await page.route(`**/api/run/${initial.id}/events`, route => route.fulfill({ contentType: 'text/event-stream', body: `event: runtime\nid: ${initial.id}:1\ndata: ${JSON.stringify(terminal)}\n\n` }));
     await page.goto('/');
     await page.getByLabel('情境', { exact: true }).selectOption('navigation-injection');
-    if (!guardEnabled) await page.getByRole('switch', { name: 'LensGuard' }).click();
+    if (!guardEnabled) await page.locator('[role=switch]').click();
     await uploadObservation(page);
     await page.getByRole('button', { name: '開始分析' }).click();
-    await expect(page.getByTestId('decision-result')).toContainText('模型輸出無效');
-    await expect(page.getByRole('heading', { name: '模型已完成，行動參數無效', exact: true })).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('提議的行動參數無法使用');
+    await openTechnical(page);
+  await expect(page.getByTestId('decision-result')).toContainText('模型輸出無效');
+    await closeDetails(page);
+    await finishStory(page);
+    await expect(page.locator('.story-stage')).toHaveAttribute('data-phase', 'failed');
+    await openTechnical(page);
+    await expect(page.locator('[role=alert]')).toContainText('提議的行動參數無法使用');
     await expect(page.locator('.action-expression')).toHaveText('提供方向(出口, 未知)');
-    await expect(page.getByRole('button', { name: '開始分析' })).toBeEnabled();
-    await page.getByText('查看技術細節', { exact: true }).click();
+    await expect(page.locator('[role=switch]')).toBeEnabled();
+    await openTechnical(page);
     await expect(page.locator('.action-status .status-text')).toHaveText('行動無效');
     await expect(page.locator('.decision-body')).toContainText('未進行判定');
     await expect(page.locator('.decision-body')).toContainText('提供方向／方向');

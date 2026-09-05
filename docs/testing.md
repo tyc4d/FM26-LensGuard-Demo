@@ -1,3 +1,22 @@
+# 劇場式逐幕展示驗證 — 2026-09-05
+
+- 前端改為獨立的展示狀態機：觀察、讀取、追溯、提案／授權、結果。相機與關鍵值保留跨幕位置變化；完整技術資料移入原生 dialog 抽屜。Gemma／Qwen／MiniCPM 模型、後端 API、推論與基準測試程式未修改。
+- `PLAYWRIGHT_ISOLATED=true npm test`：**76 項全部通過**（44 項瀏覽器案例、32 項狀態機／資料轉接案例）。測試使用獨立 15173／18000 服務、後端模擬情境與明確攔截的 Prototype 回應，不觸碰正式模型。覆蓋原有相機／圖片／請求／連線恢復，以及鍵盤暫停、晚到 SSE、減少動態效果、失敗處理、固定 JPEG／請求的比較與不重送 POST 的重播。
+- 1440×900、1920×1080 的模擬 BLOCK／ALLOW 各幕已實際逐幕檢查；主舞台與播放控制可同時在投影畫面中顯示。修正舊全域樣式的載入順序與工具列尺寸，保留手機無水平溢出的檢查。
+- 真實模型未提供獨立 OCR／區域語意對應時，展示清楚標示缺口；不補上區域、信心值、權限或成功結果。模擬模式需明確設定；有資料的重播只保留本次頁面記憶體中的原始結果，重設或重載後清除。所有既有外部行動仍為模擬。
+- 終幕的單次動畫由狀態機與原生 `animationend` 收尾；另以瀏覽器檢查真正的動畫執行、自然結束與中途暫停。手動切幕時相機／關鍵值直接定位，避免快速切換時文字暫時被裁切；減少動態效果模式保留完整靜態結果。
+- `npm run build` 與 Docker 前端映像建置通過。只重建／更新前端容器；既有後端與 Prototype 模型服務未重啟，模型 PID 維持 `321864`。HTTPS 憑證驗證保持啟用，兩個 Docker 容器均健康。
+- 真實 Chromium → HTTPS nginx → Demo → Qwen3-VL 8B 推論：訂位 `run_78b50474f3184578` 得到 `BLOCKED`，規則 `DEMO_UNSUPPORTED_POLICY_V1`，推論約 **1.73 秒**；名片明確授權 `run_f84425f35ea541cd` 得到 `ALLOWED`，規則 `DEMO_SCOPED_CARD_CALL_DELEGATION_V1`，推論約 **0.83 秒**。這是實際授權整合驗證，不是攻擊成功率實驗；兩者 `attack_success=null`、`simulation_only=true`，未採取外部行動。
+- 兩次真實回應的原始模型輸出在抽屜中完整一致，`regions=[]` 未被補上假框選。實際瀏覽器 secure context 為 true，無 page error／console error；另用這兩份已取得的回應逐幕重播檢查桌面與手機畫面，未重新執行模型。
+- 未設定獨立 lint 指令；TypeScript 嚴格檢查由 `npm run build` 執行。
+
+本次修改範圍：
+
+- 展示入口與狀態：`frontend/src/App.tsx`、`main.tsx`、`story.ts`、`usePresentation.ts`、`useComparison.ts`、`useDemoRuntime.ts`、`story.css`、`presentation-shell.css`。
+- 展示元件：`frontend/src/components/story/DemoStage.tsx`、`PipelineProgress.tsx`、`PresenterControls.tsx`、`DetailsDrawer.tsx`、`details-drawer.css`；既有 `CameraPanel.tsx`、`camera.css`、`RunSummary.tsx`。
+- 測試：`frontend/playwright.config.ts`；`frontend/tests/` 中的 `camera.spec.ts`、`cinematic.spec.ts`、`comparison-state.spec.ts`、`demo.spec.ts`、`real-runtime.spec.ts`、`reservation-details.spec.ts`、`story-state.spec.ts`、`transport.spec.ts`、`upload.spec.ts`、`user-request.spec.ts`、`presentation-helpers.ts`。
+- 文件：`README.md`、`docs/architecture.md`、本驗證紀錄。
+
 # 繁體中文介面驗證 — 2026-09-05
 
 - 即時展示、評估、系統架構、相機操作、授權結果、欄位名稱、事件與耗時標籤已改為繁體中文；HTML 語言為 `zh-Hant`。模型原文、原始 JSON、識別碼與使用者請求保持不變。

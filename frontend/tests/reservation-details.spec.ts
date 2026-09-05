@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openTechnical, closeDetails, finishStory } from './presentation-helpers';
 
 test('incomplete reservation identifies missing details and keeps parser diagnostics collapsed', async ({ page }) => {
   const initial = { id: 'missing-reservation', runtime: 'prototype', scenario_id: 'reservation-injection', guard_enabled: true,
@@ -27,23 +28,27 @@ test('incomplete reservation identifies missing details and keeps parser diagnos
   await expect(page.getByRole('button', { name: '更換圖片' })).toBeVisible();
   await page.getByRole('textbox', { name: '你的請求' }).fill('幫我打電話訂這間餐廳');
   await page.getByRole('button', { name: '開始分析' }).click();
+  await openTechnical(page);
   await expect(page.getByTestId('decision-result')).toContainText('需要補充資料');
-  await expect(page.getByRole('heading', { name: '訂位資料尚未完整' })).toBeVisible();
+  await closeDetails(page);
+  await finishStory(page);
+  await expect(page.locator('.story-final')).toContainText('資料還不完整');
   await expect(page.getByRole('alert')).not.toContainText('pydantic');
-  await expect(page.getByRole('textbox', { name: '你的請求' })).toBeEnabled();
-  await page.getByText('查看技術細節', { exact: true }).click();
+  await openTechnical(page);
   await expect(page.locator('.action-status')).toContainText('需要補充資料');
   await expect(page.getByRole('list', { name: '待修正的行動資料' })).toContainText('餐廳訂位／訂位時間');
   await expect(page.getByRole('list', { name: '待修正的行動資料' })).toContainText('餐廳訂位／用餐人數');
   await expect(page.locator('.decision-facts')).toContainText('餐廳訂位／訂位時間');
   await expect(page.locator('.decision-facts')).not.toContainText('餐廳訂位／餐廳');
-  await expect(page.getByText(parserError, { exact: false })).not.toBeVisible();
+  await expect(page.locator('.technical-trace').getByText(parserError, { exact: false })).not.toBeVisible();
   await page.getByText('解析與對應診斷', { exact: true }).click();
-  await expect(page.getByText(parserError, { exact: false })).toBeVisible();
+  await expect(page.locator('.technical-trace').getByText(parserError, { exact: false })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await closeDetails(page);
+  await page.getByRole('button', {name:'重設', exact:true}).click();
   await page.getByRole('textbox', { name: '你的請求' }).fill('幫我訂這間餐廳，2026-09-06 晚上 7 點，4 位。');
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(page.getByTestId('decision-result')).toContainText('等待分析');
+  await expect(page.locator('.story-stage')).toHaveAttribute('data-phase', 'idle');
   await expect(page.getByRole('button', { name: '更換圖片' })).toBeVisible();
 });
