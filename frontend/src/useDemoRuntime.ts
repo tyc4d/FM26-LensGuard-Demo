@@ -2,6 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
 import type { RunState, Scenario, Health, CapturedFrame } from './types';
 
+export interface RunOptions {
+  guardEnabled?: boolean;
+  scenarioId?: string;
+  userRequest?: string;
+  frame?: CapturedFrame;
+}
+
 export function useDemoRuntime() {
   const [health, setHealth] = useState<Health | null>(null);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
@@ -103,8 +110,8 @@ export function useDemoRuntime() {
     };
   }, [applyState]);
 
-  const startRun = useCallback(async (capture?: () => Promise<CapturedFrame>) => {
-    if (requestPending.current || currentRun.current?.status === 'running' || !connected) return;
+  const startRun = useCallback(async (capture?: () => Promise<CapturedFrame>, options: RunOptions = {}): Promise<boolean> => {
+    if (requestPending.current || currentRun.current?.status === 'running' || !connected) return false;
     reset();
     requestPending.current = true;
     const version = generation.current;
@@ -112,22 +119,28 @@ export function useDemoRuntime() {
     try {
       browserStarted.current = performance.now();
       uploadRoundtrip.current = 0;
-      let frame: CapturedFrame | undefined;
+      let frame: CapturedFrame | undefined = options.frame;
+      const requestText = options.userRequest ?? userRequest;
+      setSubmittedUserRequest(requestText);
       if (health?.runtime === 'prototype') {
-        if (!userRequest.trim()) throw new Error('請先輸入任務內容，再執行分析。');
-        if (userRequest.length > 4000) throw new Error('任務內容請限制在 4,000 個字元以內。');
-        if (!capture) throw new Error('目前無法擷取相機畫面。');
-        setSubmittedUserRequest(userRequest);
-        frame = await capture();
+        if (!requestText.trim()) throw new Error('請先輸入任務內容，再執行分析。');
+        if (requestText.length > 4000) throw new Error('任務內容請限制在 4,000 個字元以內。');
+        if (!frame && !capture) throw new Error('目前無法擷取相機畫面。');
+        frame = frame ?? await capture!();
+      } else if (capture && !frame) {
+        // A mock preview may be captured for presentation, but the API still
+        // receives the original JSON fixture command and no image bytes.
+        try { frame = await capture(); } catch { /* Mock scenarios need no camera. */ }
       }
-      if (!mounted.current || version !== generation.current) return;
+      if (!mounted.current || version !== generation.current) return false;
       const uploadStarted = performance.now();
-      const initial = await api.run(scenarioId, guardEnabled, userRequest, frame);
-      if (!mounted.current || version !== generation.current) return;
+      const initial = await api.run(options.scenarioId ?? scenarioId, options.guardEnabled ?? guardEnabled,
+        requestText, health?.runtime === 'prototype' ? frame : undefined);
+      if (!mounted.current || version !== generation.current) return false;
       uploadRoundtrip.current = performance.now() - uploadStarted;
       applyState(initial);
       setConnected(true);
-      if (initial.status !== 'running') return;
+      if (initial.status !== 'running') return true;
       const source = api.stream(initial.id);
       stream.current = source;
       source.onopen = () => {
@@ -152,10 +165,11 @@ export function useDemoRuntime() {
         setConnected(false);
         setError('執行連線已中斷，正在重新連線；您也可以重設此次分析。');
       };
+      return true;
     } catch (cause) {
-      if (!mounted.current || version !== generation.current) return;
+      if (!mounted.current || version !== generation.current) return false;
       setError(cause instanceof Error ? cause.message : '無法連線至後端。請確認後端服務已啟動後再試一次。');
-
+      return false;
     } finally {
       if (mounted.current && version === generation.current) {
         requestPending.current = false;
@@ -169,7 +183,7 @@ export function useDemoRuntime() {
     scenarios, scenario, scenarioId, userRequest,
     displayedUserRequest: submittedUserRequest ?? userRequest,
     userRequestEdited: userRequest !== defaultUserRequest,
-    guardEnabled, connected, run, active, error, health,
+    guardEnabled, connected, run, active, starting, error, health,
     startRun, reset,
     editUserRequest: (value: string) => {
       if (health?.runtime !== 'prototype' || !scenario || requestPending.current || currentRun.current?.status === 'running') return;
@@ -186,6 +200,6 @@ export function useDemoRuntime() {
       });
     },
     selectScenario: (id: string) => { if (!active) { reset(); setScenarioId(id); } },
-    toggleGuard: () => { if (!active) { reset(); setGuardEnabled((value) => !value); } },
+    toggleGuard: (enabled?: boolean) => { if (!active) { reset(); setGuardEnabled((value) => enabled ?? !value); } },
   };
 }
