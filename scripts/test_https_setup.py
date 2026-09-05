@@ -31,8 +31,26 @@ printf 'test-only-key' > "$4"
 ''')
         script.chmod(0o755)
 
-    def run_script(self, **env):
-        return subprocess.run([str(self.script)], env={**self.env, **env}, text=True, capture_output=True)
+    def run_script(self, *names, **env):
+        return subprocess.run([str(self.script), *names], env={**self.env, **env}, text=True, capture_output=True)
+
+    def test_help_needs_no_mkcert(self):
+        result = self.run_script("--help")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("additional-IP-or-hostname", result.stdout)
+
+    def test_option_in_additional_names_is_rejected(self):
+        result = self.run_script("100.101.102.103", "-uninstall")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not options", result.stderr)
+        self.assertFalse((self.root / "certs").exists())
+
+    def test_additional_vpn_ip_and_hostname_preserve_lan_and_loopback(self):
+        self.stub_mkcert()
+        result = self.run_script("100.101.102.103", "demo.example.test")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        cert = (self.root / "certs/lensguard.pem").read_text()
+        self.assertEqual(cert.splitlines(), ["localhost", "127.0.0.1", "::1", "192.168.1.123", "100.101.102.103", "demo.example.test"])
 
     def test_missing_mkcert_reports_installation(self):
         result = self.run_script()

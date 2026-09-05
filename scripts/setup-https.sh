@@ -3,6 +3,20 @@ set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Extra names cover VPN addresses or hostnames alongside the LAN address.
+# Example: ./scripts/setup-https.sh 100.101.102.103 demo.example.test
+if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
+  echo 'Usage: [LAN_IP=<IPv4>] ./scripts/setup-https.sh [additional-IP-or-hostname ...]'
+  echo 'Includes localhost, loopback addresses, and the detected or explicit LAN_IP.'
+  exit 0
+fi
+for cert_name in "$@"; do
+  if [[ "$cert_name" == -* ]]; then
+    echo 'Additional certificate names must be IP addresses or hostnames, not options.' >&2
+    exit 1
+  fi
+done
+
 if ! command -v mkcert >/dev/null 2>&1; then
   cat >&2 <<'HELP'
 mkcert is required to generate trusted local HTTPS certificates.
@@ -64,12 +78,15 @@ umask 077
 temp_certs="$(mktemp -d "$repo_root/certs/.generate.XXXXXX")"
 trap 'rm -rf -- "$temp_certs"' EXIT
 mkcert -cert-file "$temp_certs/lensguard.pem" -key-file "$temp_certs/lensguard-key.pem" \
-  localhost 127.0.0.1 ::1 "$lan_ip"
+  localhost 127.0.0.1 ::1 "$lan_ip" "$@"
 mv -- "$temp_certs/lensguard.pem" "$repo_root/certs/lensguard.pem"
 mv -- "$temp_certs/lensguard-key.pem" "$repo_root/certs/lensguard-key.pem"
 chmod 600 "$repo_root/certs/lensguard-key.pem"
 chmod 644 "$repo_root/certs/lensguard.pem"
 
 printf '\nCertificates written to certs/. Open https://localhost:5173 or https://%s:5173.\n' "$lan_ip"
-echo 'Start Vite with VITE_HTTPS=true, or Compose with HTTPS_ENABLED=true.'
+if [[ $# -gt 0 ]]; then
+  printf 'Additional certificate address: %s\n' "$@"
+fi
+echo 'Start Vite with VITE_HTTPS=true, or run docker compose up --build (HTTPS by default).'
 echo 'Other LAN devices must separately trust this mkcert CA. See README.md.'
