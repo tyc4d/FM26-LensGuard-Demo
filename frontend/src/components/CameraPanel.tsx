@@ -8,6 +8,8 @@ export interface CameraCapture { capture: () => Promise<CapturedFrame> }
 export interface CameraPanelProps {
   captureRef?: Ref<CameraCapture>;
   realMode?: boolean;
+  cinematic?: boolean;
+  disabled?: boolean;
   regions: DetectedRegion[];
   frameId: string | null;
   onLiveChange: (live: boolean) => void;
@@ -38,7 +40,7 @@ function cameraError(error: unknown): string {
   return '無法啟動相機。請確認瀏覽器權限及相機連線後再試一次。';
 }
 
-export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, children, captureRef, realMode = false }: CameraPanelProps) {
+export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, children, captureRef, realMode = false, cinematic = false, disabled = false }: CameraPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageUrlRef = useRef<string | null>(null);
@@ -57,6 +59,8 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
   const [error, setError] = useState<string | null>(null);
   const [cameraChoice, setCameraChoice] = useState('environment');
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
 
   useImperativeHandle(captureRef, () => ({ capture: async () => {
     const started = performance.now();
@@ -160,6 +164,7 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
   }, [publishLive, releaseStream]);
 
   const startCamera = useCallback(async (choice: string) => {
+    if (disabledRef.current) return;
     imageOperationRef.current += 1;
     setUploading(false);
     setImageError(null);
@@ -191,8 +196,9 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
         video.facingMode = { ideal: choice };
       }
       const stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
-      if (!mountedRef.current || operation !== operationRef.current) {
+      if (!mountedRef.current || operation !== operationRef.current || disabledRef.current) {
         stream.getTracks().forEach((track) => track.stop());
+        if (mountedRef.current && operation === operationRef.current) setRequesting(false);
         return;
       }
 
@@ -220,6 +226,11 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
       element.srcObject = stream;
       await element.play();
       if (!mountedRef.current || operation !== operationRef.current) return;
+      if (disabledRef.current) {
+        releaseStream();
+        setRequesting(false);
+        return;
+      }
       if (stream.getVideoTracks().every((track) => track.readyState === 'ended')) {
         onEnded();
         return;
@@ -233,11 +244,12 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
       releaseStream();
       publishLive(false);
       setRequesting(false);
-      setError(cameraError(cause));
+      if (!disabledRef.current) setError(cameraError(cause));
     }
   }, [clearImage, publishLive, refreshDevices, releaseStream]);
 
   async function uploadImage(file: File) {
+    if (disabledRef.current) return;
     const operation = ++imageOperationRef.current;
     setImageError(null);
     setUploading(false);
@@ -256,7 +268,7 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
       const preview = new Image();
       preview.src = url;
       await preview.decode();
-      if (!mountedRef.current || operation !== imageOperationRef.current) return;
+      if (!mountedRef.current || operation !== imageOperationRef.current || disabledRef.current) return;
       if (preview.naturalWidth * preview.naturalHeight > 40_000_000) {
         throw new Error('圖片尺寸超過 4,000 萬像素。');
       }
@@ -268,7 +280,7 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
       setError(null);
       onImageChangeRef.current?.(file.name);
     } catch {
-      if (mountedRef.current && operation === imageOperationRef.current) {
+      if (mountedRef.current && operation === imageOperationRef.current && !disabledRef.current) {
         setImageError('無法開啟此圖片。請選擇有效的 JPEG、PNG 或 WebP 圖片，且尺寸須小於 4,000 萬像素。');
       }
     } finally {
@@ -278,16 +290,29 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
   }
 
   const idleCamera = !uploadedImage && !live && !requesting && regions.length === 0;
-  const cameraButton = <button type="button" className={`camera-button ${idleCamera ? 'camera-start-button' : ''}`} onClick={() => live || requesting ? stopCamera() : void startCamera(cameraChoice)}>{live || requesting ? '停止相機' : '啟動相機'}</button>;
+  const cameraButton = <button type="button" className={`camera-button ${idleCamera ? 'camera-start-button' : ''}`} disabled={disabled} onClick={() => {
+    if (disabledRef.current) return;
+    if (live || requesting) stopCamera();
+    else void startCamera(cameraChoice);
+  }}>{live || requesting ? '停止相機' : '啟動相機'}</button>;
 
   return (
-    <section className="camera-panel" aria-label="相機與行動展示區" data-frame-id={frameId}>
+    <section className={`camera-panel${cinematic ? ' camera-panel--cinematic' : ''}`} aria-label="相機與行動展示區" data-frame-id={frameId}>
       <div className="stage-layout">
         <div className="camera-column">
           <div className="stage-camera-header"><span>觀察畫面</span><span data-testid="status-camera">相機 {live ? '使用中' : '已關閉'}</span></div>
           <div className={`camera-viewport${live ? ' camera-viewport--live' : ''}`}>
             <video ref={videoRef} autoPlay playsInline muted aria-label="瀏覽器相機即時畫面" />
             {uploadedImage && <img className="uploaded-image" src={uploadedImage.url} alt={`已上傳的觀察圖片：${uploadedImage.name}`} />}
+            {cinematic && <div className="camera-glass-hud" aria-hidden="true">
+              <span className="camera-glass-corner camera-glass-corner--top-left" />
+              <span className="camera-glass-corner camera-glass-corner--top-right" />
+              <span className="camera-glass-corner camera-glass-corner--bottom-left" />
+              <span className="camera-glass-corner camera-glass-corner--bottom-right" />
+              <span className="camera-glass-label">第一人稱視角</span>
+              <span className={`camera-glass-signal${live || uploadedImage ? ' camera-glass-signal--ready' : ''}`}>{uploadedImage ? '圖片預覽' : live ? '即時畫面' : '等待影像'}</span>
+              <span className="camera-glass-caption">{disabled ? '正在處理本次畫面' : '讓 LensGuard 看見您眼前的世界'}</span>
+            </div>}
             {!live && !uploadedImage && <div className={`camera-placeholder${regions.length ? ' camera-placeholder--fixture' : ''}`}>
               <span>{requesting ? '正在等待相機' : regions.length ? '相機已關閉 · 模擬場景' : '相機已關閉'}</span>
               {!regions.length && <p>{requesting ? '請在瀏覽器中允許存取相機。' : '將鏡頭對準要觀察的環境。'}</p>}
@@ -304,14 +329,15 @@ export function CameraPanel({ regions, frameId, onLiveChange, onImageChange, chi
           </div>
           <div className="camera-controls">
             {!idleCamera && cameraButton}
-            <input ref={fileRef} className="image-file-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="上傳觀察圖片" onChange={(event) => {
+            <input ref={fileRef} className="image-file-input" type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled} aria-label="上傳觀察圖片" onChange={(event) => {
               const file = event.target.files?.[0];
               event.target.value = '';
               if (file) void uploadImage(file);
             }} />
-            <button type="button" className="camera-button" disabled={uploading} onClick={() => fileRef.current?.click()}>{uploading ? '正在開啟圖片…' : uploadedImage ? '更換圖片' : '上傳圖片'}</button>
-            {uploadedImage && <button type="button" className="camera-button" onClick={clearImage}>移除圖片</button>}
-            {(supportsFacing || devices.length > 1) && <select aria-label="選擇相機" value={cameraChoice} onChange={(event) => {
+            <button type="button" className="camera-button" disabled={disabled || uploading} onClick={() => fileRef.current?.click()}>{uploading ? '正在開啟圖片…' : uploadedImage ? '更換圖片' : '上傳圖片'}</button>
+            {uploadedImage && <button type="button" className="camera-button" disabled={disabled} onClick={() => { if (!disabledRef.current) clearImage(); }}>移除圖片</button>}
+            {(supportsFacing || devices.length > 1) && <select aria-label="選擇相機" value={cameraChoice} disabled={disabled} onChange={(event) => {
+              if (disabledRef.current) return;
               const choice = event.target.value; setCameraChoice(choice);
               if (live || requesting) void startCamera(choice);
             }}>

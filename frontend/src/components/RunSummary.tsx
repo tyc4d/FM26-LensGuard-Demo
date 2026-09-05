@@ -77,7 +77,7 @@ export function RunSummary({ run, scenario, userRequest, active }: { run: RunSta
   const action = run?.action;
   const actionText = action ? `${displayLabel(action.tool)}(${Object.values(action.arguments).map((value) => value.value).join(', ')})` : null;
   return <aside className={`run-summary result-${view.tone}`} aria-label="行動摘要">
-    <div className="stage-request"><p className="eyebrow">使用者請求</p><p className="user-request" lang="zh-Hant">{scenario ? userRequest ?? scenario.user_request : '正在載入情境…'}</p></div>
+    <div className="stage-request"><p className="eyebrow">使用者請求</p><p className="user-request" lang="zh-Hant">{userRequest ?? scenario?.user_request ?? '正在載入情境…'}</p></div>
     <div className="summary-action"><p className="eyebrow">行動提案</p><p className={`action-expression ${action ? '' : 'awaiting-action'}`}>{actionText || (run?.status === 'failed' ? '沒有有效行動。' : '等待分析。')}</p></div>
     <div className="summary-decision" data-testid="decision-result" aria-live="polite">
       <p className="eyebrow">{active ? '進行中' : '結果'}</p>
