@@ -9,6 +9,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict
 
 from .models import PolicyDecision, ProposedAction, ProvenanceValue, RunOutcome, TraceNode, TraceEdge
+from .action_validation import reservation_issues
 
 
 @dataclass
@@ -129,6 +130,19 @@ class PrototypeRuntimeProvider:
         state.timings['prototype_request_ms'] = request_ms
         state.components['vlm'] = 'live'
         await publish('inference.completed', 'Real local model response received.')
+        raw_action = (response.output.proposed_action or response.output.native_action) if response.output.parsed else response.output.candidate_action
+        state.validation_issues = reservation_issues(raw_action)
+        if state.validation_issues:
+            display_response = response.model_copy(update={
+                'output': response.output.model_copy(update={'candidate_action': raw_action}),
+            })
+            state.action = self.map_action(display_response, state.id, candidate=True)
+            missing_only = all(issue.kind == 'missing' for issue in state.validation_issues)
+            detail = ' '.join(issue.message for issue in state.validation_issues)
+            raise RuntimeFailure(
+                f'{detail} Check the user request, add the needed details, and analyze again.',
+                'reservation_details_missing' if missing_only else 'model_schema_invalid',
+            )
         if response.output.validation_error is not None:
             # Parsing succeeded, but the Prototype's action normalizer rejected
             # a value (for example an unknown direction). Preserve it for display
@@ -143,8 +157,10 @@ class PrototypeRuntimeProvider:
             # schema-invalid output to an executable action, even with Guard OFF.
             if response.output.candidate_action is not None:
                 state.action = self.map_action(response, state.id, candidate=True)
-                detail = response.output.diagnostics.get('error_message') or 'Required action arguments are missing or invalid.'
-                raise RuntimeFailure(f'Model inference completed, but action schema validation failed: {detail}', 'model_schema_invalid')
+                raise RuntimeFailure(
+                    'The model proposed an action with missing or invalid arguments. Check the proposed values and update the user request before trying again.',
+                    'model_schema_invalid',
+                )
             raise RuntimeFailure('Model output could not be parsed. Raw model text is available in technical details.', 'model_output_parse_failed')
         state.action = self.map_action(response, state.id)
         await publish('action.parsed', 'Structured action validated by Prototype parser.')

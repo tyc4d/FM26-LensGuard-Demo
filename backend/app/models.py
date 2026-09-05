@@ -120,10 +120,17 @@ class RunOutcome(Schema):
     detail: str
 
 
+class ValidationIssue(Schema):
+    argument: str
+    kind: Literal["missing", "invalid"]
+    message: str
+
+
 class RunState(Schema):
     runtime: Literal["mock", "prototype"] = "mock"
     raw_model_text: str | None = None
     error_code: str | None = None
+    validation_issues: list[ValidationIssue] = Field(default_factory=list)
     timings: dict[str, float] = Field(default_factory=dict)
     components: dict[str, str] = Field(default_factory=dict)
     runtime_metadata: dict[str, Any] = Field(default_factory=dict)
