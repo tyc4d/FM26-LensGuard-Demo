@@ -136,7 +136,15 @@ The helper runs `mkcert -install` (which may request administrator privileges), 
 LAN_IP=192.168.1.123 ./scripts/setup-https.sh
 ```
 
-The address above is an example; use your presentation computer's address. The script exits clearly if mkcert or a usable LAN IP is unavailable. `LAN_IP` is read from the shell environment, not automatically from `.env`. Generated certificates and private keys are ignored by Git and excluded from Docker build contexts. Regenerate after the LAN IP changes, then restart the frontend.
+The address above is an example; use your presentation computer's address. To also cover a Tailscale IP or another hostname/address, pass it as an extra argument:
+
+```bash
+./scripts/setup-https.sh 100.101.102.103
+```
+
+Replace that example with your address. Extra hostnames and IPs are added to the certificate alongside localhost and the detected or explicit `LAN_IP`; pass all required extra names/addresses again whenever you regenerate. Open the site using an address covered by the certificate.
+
+The script exits clearly if mkcert or a usable LAN IP is unavailable. `LAN_IP` is read from the shell environment, not automatically from `.env`. Generated certificates and private keys are ignored by Git and excluded from Docker build contexts. Regenerate after an address changes, then restart the frontend.
 
 After installing the project dependencies, use two terminals from the repository root:
 
@@ -163,20 +171,22 @@ If installing a development CA is impractical, use a trusted HTTPS tunnel or a r
 
 ## Docker Compose
 
-From the repository root:
-
-```bash
-docker compose up --build
-```
-
-The default remains <http://localhost:5173>. For the recommended HTTPS LAN demo, generate certificates first and run:
+Docker uses HTTPS by default. Generate and trust the local certificates before the first startup, following the [HTTPS setup](#https-for-camera-access), then run from the repository root:
 
 ```bash
 ./scripts/setup-https.sh
-HTTPS_ENABLED=true docker compose up --build
+docker compose up --build
 ```
 
-Open **https://localhost:5173** or **https://<LAN-IP>:5173**. The same secondary-device trust requirements apply. Copy root `.env.example` to `.env` to persist `HTTPS_ENABLED=true`, or use `HTTPS_ENABLED=false docker compose up --build` for HTTP. `HTTPS_ENABLED` controls nginx at container startup; `VITE_HTTPS` controls the local Vite server. Both expose port 5173, so stop the local dev server before using Compose.
+Open **https://localhost:5173** or **https://<LAN-IP>:5173**. For Tailscale or another hostname/address, include it when generating the certificate as shown above. Every visiting device must trust the mkcert CA. When HTTPS is enabled, an HTTP request to port 5173 redirects to HTTPS while preserving the requested host, port, path, and query string.
+
+`HTTPS_ENABLED` defaults to `true`. Check any existing repository-root `.env` and change `HTTPS_ENABLED=false` to `true` for HTTPS. For HTTP localhost development, explicitly opt out:
+
+```bash
+HTTPS_ENABLED=false docker compose up --build
+```
+
+This serves <http://localhost:5173> without certificates; camera access over a plain HTTP LAN address remains unavailable. Copy root `.env.example` to `.env` if you want to persist your Docker settings. `HTTPS_ENABLED` controls nginx at container startup; `VITE_HTTPS` controls the local Vite server. Both expose port 5173, so stop the local dev server before using Compose.
 
 Compose mounts `./certs` read-only at `/etc/lensguard/certs`; private keys are never baked into images. The existing nginx container selects HTTP or TLS configuration at startup and fails clearly if HTTPS certificates are missing. After replacing certificates, run `HTTPS_ENABLED=true docker compose up -d --force-recreate frontend` to reload them. The internal healthcheck probes the selected protocol; its HTTPS liveness probe skips CA verification because the local CA is not installed inside the image. Browser certificate verification remains enabled.
 
@@ -268,7 +278,7 @@ Playwright automatically starts both the FastAPI and Vite development servers an
 PYTHON_BINARY=/absolute/path/to/python npm test
 ```
 
-On Linux, Playwright may also require its Chromium system dependencies (`npx playwright install --with-deps chromium`). Automated camera checks use a synthetic browser video device. A physical webcam permission grant must also be checked in the browser used for the live presentation. See [validation notes](docs/testing.md) for recorded results and the container verification limit.
+On Linux, Playwright may also require its Chromium system dependencies (`npx playwright install --with-deps chromium`). Automated camera checks use a synthetic browser video device. A physical webcam permission grant must also be checked in the browser used for the live presentation. See [validation notes](docs/testing.md) for recorded results and remaining verification limits.
 
 ## Real local inference
 
@@ -354,7 +364,7 @@ The exact trusted task `幫我撥打這張名片上的電話` grants a narrow de
 
 ### Docker and real mode
 
-The default Compose setup continues to run explicit mock mode over HTTP or HTTPS. On this Linux server, real mode uses a small host-network override so the Prototype remains loopback-only:
+The default Compose setup runs explicit mock mode with HTTPS enabled. On this Linux server, real mode uses a small host-network override so the Prototype remains loopback-only. Generate certificates using the [HTTPS setup](#https-for-camera-access) before starting it:
 
 ```bash
 HTTPS_ENABLED=true docker compose -f docker-compose.yml -f docker-compose.live.yml up --build
