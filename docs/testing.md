@@ -1,3 +1,18 @@
+# Minimal four-state presentation — 2026-09-05
+
+## 2026-09-06：黑客松 README 與 repo 連結
+
+- README 依繳交格式排列十個章節，提供 Mock 重現步驟、真實 Qwen 安裝文件、Mermaid 架構圖、第三方來源與 MIT LICENSE。團隊、評選影片、公開網址與 Sponsor 資訊仍待提供。
+- `prototype -> ../FM26-LensGuard-Prototype` 以 Git symlink 模式 `120000` 提交；模型原始碼保留在獨立 repo，Docker context 排除此連結。
+- Prototype 驗證版本：[`855630ed409ff4e71c2c30d21f1ba0d241c9c450`](https://github.com/tyc4d/FM26-LensGuard-Prototype/commit/855630ed409ff4e71c2c30d21f1ba0d241c9c450)，分支 `phase3-direct-physical-pilot-v1`。symlink 本身不會鎖定或下載此版本。
+- Prototype 相關 CPU 測試 **165 passed**：任務引用、感知、語意規則、HTTP 服務、記憶體回收、實體推論與評分工具；沒有載入 GPU 模型或提交實體資料。
+- Demo 後端 **100 passed**；前端 TypeScript／Vite build 通過；`PLAYWRIGHT_ISOLATED=true npm test` **51 passed**。瀏覽器測試使用獨立 18000／15173 服務、Mock 與明確攔截的 Prototype 回應，未呼叫真實模型。
+- README 章節順序、文件相對連結、symlink 目標、Docker Compose 設定、systemd unit 語法與 Git whitespace 檢查通過。
+- 既有模型 health 為 `ready`，本次沒有重新部署或重啟正式服務。新主機模型安裝文件依現有環境版本整理，尚未在另一台全新 GPU 主機驗證。
+- 本次 `reviewed_prototype_v1` 原始／衍生資料含辨識出的聯絡資訊，完整保留本機並加入 Git 忽略；公開提交包含工具與合成測試。
+
+The current UI replaces the cinematic/pipeline interfaces described in the historical records below. See [presentation validation](presentation.md) for the current flow, controls, real-backend checks, and reproduction commands. DECIDE now labels useful information and rejected instructions and compares actual Guard ON/OFF results. The current validation also covers long OCR and mobile phone-number visibility.
+
 # 桌面版排版修正驗證 — 2026-09-05
 
 - 重現 1280×720、1366×768 下固定舞台最小高度造成的相機／按鈕裁切與控制列超出視窗；原有大尺寸檢查未涵蓋這個問題。舞台改為取得視窗剩餘高度，各幕主內容、前幕縮圖／關鍵值與頁尾分列配置，移除百分比絕對定位與語意區塊的固定空白。
