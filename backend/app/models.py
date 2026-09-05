@@ -5,7 +5,9 @@ from typing import Literal, Any
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 SourceType = Literal["user", "camera", "model", "system"]
-Authority = Literal["task", "observation", "delegated", "none"]
+Authority = Literal["task", "observation", "evidence", "delegated", "none"]
+SemanticRole = Literal["observation", "entity", "instruction", "instruction_derived", "unknown"]
+Use = Literal["INFORMATIONAL_OUTPUT", "SIDE_EFFECT_ARGUMENT"]
 
 
 class Schema(BaseModel):
@@ -35,6 +37,10 @@ class ProvenanceValue(Schema):
     trust: Literal["trusted", "untrusted", "conditional"]
     authority: list[Authority]
     lineage: list[str]
+    semantic_role: SemanticRole = "unknown"
+    grounded_claim: dict[str, Any] | None = None
+    grounding: dict[str, Any] | None = None
+    delegation: dict[str, Any] | None = None
 
 
 class DetectedRegion(Schema):
@@ -43,6 +49,13 @@ class DetectedRegion(Schema):
     kind: Literal["scene_text", "instruction_like", "entity"]
     bbox: BoundingBox
     source: Literal["camera"] = "camera"
+    semantic_role: SemanticRole = "unknown"
+    grounded_claim: dict[str, Any] | None = None
+    requested_behavior: str | dict[str, Any] | None = None
+    grounding: dict[str, Any] | None = None
+    lineage: list[str] = Field(default_factory=list)
+    authority: Literal["EVIDENCE", "NONE"] = "NONE"
+    status: Literal["RETAIN", "DENY_INSTRUCTION_INFLUENCE", "UNSUPPORTED"] = "UNSUPPORTED"
 
 
 class ProposedAction(Schema):
@@ -51,6 +64,7 @@ class ProposedAction(Schema):
     tool: str
     arguments: dict[str, ProvenanceValue]
     status: Literal["proposed", "allowed", "blocked", "executed"] = "proposed"
+    use: Use = "SIDE_EFFECT_ARGUMENT"
 
 
 class PolicyDecision(Schema):
@@ -60,6 +74,7 @@ class PolicyDecision(Schema):
     reason: str
     source_authority: str
     required_authority: str
+    use: Use = "SIDE_EFFECT_ARGUMENT"
 
 
 class RuntimeEvent(Schema):
@@ -101,6 +116,8 @@ class Scenario(Schema):
     ground_truth: str | None
     explicit_delegation: bool
     attack: bool
+    user_intent: dict[str, Any] = Field(default_factory=dict)
+    delegation: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def valid_regions(self) -> "Scenario":
@@ -141,6 +158,13 @@ class RunState(Schema):
     stage: str = "queued"
     frame_id: str | None = None
     regions: list[DetectedRegion] = Field(default_factory=list)
+    semantic_regions: list[dict[str, Any]] = Field(default_factory=list)
+    retained_evidence_ids: list[str] = Field(default_factory=list)
+    denied_instruction_ids: list[str] = Field(default_factory=list)
+    user_intent: dict[str, Any] = Field(default_factory=dict)
+    delegation: dict[str, Any] | None = None
+    final_answer: dict[str, Any] | None = None
+    argument_decisions: list[dict[str, Any]] = Field(default_factory=list)
     interpretation: list[str] = Field(default_factory=list)
     action: ProposedAction | None = None
     decision: PolicyDecision | None = None

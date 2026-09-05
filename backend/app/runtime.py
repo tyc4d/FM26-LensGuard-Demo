@@ -98,25 +98,46 @@ class DemoRuntime:
 
             await self._pause()
             state.regions = await self.provider.extract_regions(scenario)
+            state.semantic_regions = self.provider.semantic_regions(scenario)
+            state.retained_evidence_ids = [r['id'] for r in state.semantic_regions if r['status'] == 'RETAIN']
+            state.denied_instruction_ids = [r['id'] for r in state.semantic_regions if r['status'] == 'DENY_INSTRUCTION_INFLUENCE']
+            state.user_intent = scenario.user_intent
+            state.delegation = self.provider.user_delegation(scenario)
             await self._publish(record, "perception.text_extracted", f"已從模擬資料載入 {len(state.regions)} 個相機來源區域。")
 
             await self._pause()
             state.action = await self.provider.propose_action(scenario, state.id)
-            tool_label = {"call_phone": "撥打電話", "navigate": "提供方向建議"}.get(state.action.tool, state.action.tool)
+            tool_label = {"call_phone": "撥打電話", "provide_direction": "回答方向"}.get(state.action.tool, state.action.tool)
             argument_labels = {"number": "電話號碼", "direction": "方向"}
             arguments = "、".join(f'{argument_labels.get(name, name)}="{value.value}"' for name, value in state.action.arguments.items())
             await self._publish(record, "model.action_proposed", f"模擬模型已提出行動：{tool_label}（{arguments}）。")
 
             await self._pause()
+            if state.guard_enabled:
+                state.action = await self.provider.ground_informational_output(scenario, state.action)
             trace = await self.provider.attach_provenance(scenario, state.action, frame_id)
             state.action = trace.action
             state.trace_nodes = trace.nodes
             state.trace_edges = trace.edges
-            await self._publish(record, "provenance.attached", "已附加相機來源追溯資訊" + ("，並記錄使用者的明確授權。" if scenario.explicit_delegation else "；內容僅具觀察用途，尚未獲得行動授權。"))
+            await self._publish(record, "provenance.attached", "已保留觀察／實體的場景依據，並分離不具權限的嵌入指令。")
 
             await self._pause()
             if state.guard_enabled:
                 state.decision = await self.provider.evaluate_policy(scenario, state.action)
+                if state.action.use == 'SIDE_EFFECT_ARGUMENT':
+                    for region in scenario.regions:
+                        if region.grounded_claim and region.grounded_claim.get('predicate') in {'restaurant_reservation_phone', 'card_phone'}:
+                            candidate = state.action.model_copy(deep=True)
+                            candidate.arguments[scenario.argument_name].value = region.grounded_claim['value']
+                            candidate.arguments[scenario.argument_name].source_id = region.id
+                            candidate = (await self.provider.attach_provenance(scenario, candidate, frame_id)).action
+                            candidate_decision = await self.provider.evaluate_policy(scenario, candidate)
+                            state.argument_decisions.append(dict(value=region.grounded_claim['value'], source_id=region.id,
+                                semantic_role=region.semantic_role, **candidate_decision.model_dump()))
+                    candidate_value = state.action.arguments[scenario.argument_name]
+                    if not any(item['source_id'] == candidate_value.source_id for item in state.argument_decisions):
+                        state.argument_decisions.append(dict(value=candidate_value.value, source_id=candidate_value.source_id,
+                            semantic_role=candidate_value.semantic_role, **state.decision.model_dump()))
                 policy_label = "允許" if state.decision.result == "allow" else "拒絕"
                 event_type = "policy.evaluated"
                 detail = f"{policy_label}：{state.decision.reason}"
@@ -130,6 +151,11 @@ class DemoRuntime:
 
             await self._pause()
             state.outcome = await self.provider.resolve_outcome(scenario, state.guard_enabled, state.decision)
+            if state.action.use == 'INFORMATIONAL_OUTPUT' and state.outcome.result:
+                value = state.action.arguments[scenario.argument_name]
+                state.final_answer = dict(text={'right': '出口在右邊。', 'left': '出口在左邊。'}.get(state.outcome.result, state.outcome.result),
+                                          value=state.outcome.result, grounded_claim=value.grounded_claim,
+                                          evidence_ids=[value.source_id] if value.semantic_role == 'observation' else [])
             state.action.status = state.outcome.status
             outcome_label = {"allowed": "已允許", "blocked": "已阻擋", "executed": "已模擬執行"}[state.outcome.status]
             state.trace_nodes.append(TraceNode(id="outcome", label=outcome_label, type="模擬結果", source="system"))
