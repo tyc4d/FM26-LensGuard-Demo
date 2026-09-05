@@ -21,7 +21,7 @@ services:
     ports:
       - "5173:8080"
     environment:
-      HTTPS_ENABLED: ${HTTPS_ENABLED:-false}
+      HTTPS_ENABLED: ${HTTPS_ENABLED:-true}
     volumes:
       - ./certs:/etc/lensguard/certs:ro
     depends_on:

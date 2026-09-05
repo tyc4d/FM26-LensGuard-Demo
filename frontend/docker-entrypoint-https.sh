@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-case "${HTTPS_ENABLED:-false}" in
+case "${HTTPS_ENABLED:-true}" in
   true)
     if [ ! -r /etc/lensguard/certs/lensguard.pem ] || [ ! -r /etc/lensguard/certs/lensguard-key.pem ]; then
       echo 'HTTPS_ENABLED=true requires certificates. Run ./scripts/setup-https.sh and mount ./certs read-only at /etc/lensguard/certs.' >&2
@@ -10,7 +10,8 @@ case "${HTTPS_ENABLED:-false}" in
     LENSGUARD_TLS_LISTEN=' ssl'
     LENSGUARD_TLS_CONFIG='ssl_certificate /etc/lensguard/certs/lensguard.pem;
     ssl_certificate_key /etc/lensguard/certs/lensguard-key.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;'
+    ssl_protocols TLSv1.2 TLSv1.3;
+    error_page 497 =308 https://$http_host$request_uri;'
     ;;
   false)
     LENSGUARD_TLS_LISTEN=''
