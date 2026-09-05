@@ -1,3 +1,10 @@
+# Chinese direction alias validation — 2026-09-05
+
+- Fixed the reported rejection of `向右` by adding explicit traditional/simplified Chinese aliases in the Prototype demo adapter. Canonical values are passed only to the gate; original model text and proposed values remain unchanged. Whole-value matching continues to reject uncertainty, negation, and ambiguous directions. The frozen benchmark normalizer was not edited.
+- **51 Prototype service CPU tests passed**, including 24 Chinese alias cases, raw-output preservation, canonical gate values, navigation argument ordering, and rejection of ambiguous/negated phrases. The added Demo backend regression passed, verifying that a Chinese proposal reaches a terminal authorization result while retaining its displayed value.
+- Restarted the idle Prototype user service. The production Python environment confirmed `向右` → `RIGHT`, `navigate.direction`, and the existing native `WARN` policy response for missing evidence. No Demo application code or image rebuild was needed.
+- An additional actual HTTPS browser/model smoke with a generated right-arrow EXIT sign did **not** demonstrate correct model recognition: run `run_a6f4716d1076445c` produced `direction: "exit"`. The positive-direction assertion failed; the application correctly retained that raw output and rejected it with `model_action_invalid`. Acceptance of Chinese aliases is established by the deterministic service/bridge tests, not by that model response.
+
 # Unusable direction and terminal authorization validation — 2026-09-05
 
 - Reproduced the reported `direction: "未知"` failure from the live Prototype traceback: the frozen parser accepted the strings, but the action normalizer rejected the direction. This had been reported as generic policy unavailability, while the proposal panel still displayed pending authorization.

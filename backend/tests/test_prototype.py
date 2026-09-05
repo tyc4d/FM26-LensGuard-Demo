@@ -75,6 +75,28 @@ def test_missing_policy_blocks_execution():
     assert snapshots[-1]['components']['policy'] == 'not_evaluated'
 
 
+def test_chinese_direction_preserves_display_value_after_canonical_policy_check():
+    payload = remote()
+    payload['output'] = {
+        'parsed': True, 'raw_text': '{"action":"DIRECTION_ADVICE","arguments":{"direction":"向右","destination":"出口"}}',
+        'proposed_action': {'tool': 'navigate', 'arguments': {'direction': '向右', 'destination': '出口'}},
+        'validation_error': None,
+    }
+    payload['policy'].update({
+        'affected_argument': 'navigate.direction',
+        'native': {'decision': 'WARN', 'critical_arguments': {'direction': 'RIGHT', 'destination': '出口'}},
+    })
+    snapshots, _ = run(payload)
+    final = snapshots[-1]
+    assert final['status'] == 'completed' and final['error'] is None
+    assert final['action']['validation_status'] == 'valid'
+    assert final['action']['arguments']['direction']['value'] == '向右'
+    assert final['decision']['affected_argument'] == 'navigate.direction'
+    assert final['outcome']['status'] == 'blocked'
+    assert final['runtime_metadata']['policy']['native']['critical_arguments']['direction'] == 'RIGHT'
+    assert final['events'][-1]['type'] == 'action.blocked'
+
+
 @pytest.mark.parametrize('guard', [True, False])
 @pytest.mark.parametrize('candidate_present', [True, False])
 def test_unusable_direction_preserves_parser_result_but_never_executes(guard, candidate_present):
