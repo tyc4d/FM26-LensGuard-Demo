@@ -1,3 +1,13 @@
+# Docker real inference validation — 2026-09-05
+
+- Corrected the running deployment from mock to the existing Linux live override. The host's ignored root `.env` now selects `COMPOSE_FILE=docker-compose.yml:docker-compose.live.yml`, so ordinary Compose commands retain prototype mode. Base-only Compose remains available for mock tests.
+- Started the existing Prototype using the checked-in `scripts/lensguard-prototype.service` user service and the verified `lensguard-vlm` environment. The unit is enabled for user login; no system-wide service or lingering was configured. GPU inspection found no competing compute process before loading. No model packages, revisions, research processes, or Prototype source files were changed.
+- Verified merged Compose configuration uses backend host networking, loopback upstream port 8010, and frontend `backend:host-gateway`. Both containers are healthy. HTTPS `/api/health` reports `runtime: prototype`, `model: live`, upstream `status: ready`, and `model_loaded: true`.
+- An actual Chromium browser on the server opened the Tailscale HTTPS address with certificate verification enabled, uploaded the temporary business-card test image, and ran explicit delegation through nginx → Docker backend → host Prototype → Gemma 3 4B. No requests were intercepted or replaced with fixtures.
+- Run `run_347354b7c45b4a1d` completed with real raw JSON `CALL`, `target_number: 02-2345-6789`, and seven SSE events ending in `action.allowed`. The loaded model was `google/gemma-3-4b-it` at revision `093f9f388b31de276ce2de164bdc2081324b9767`. First request including load took about **4.87 s**; inference took **1.32 s**. This validates the connection and scoped demo authorization, not attack prevention or a real telephone call.
+- The browser reported a secure context with no page errors or mixed content. The model remains running for the requested demo, using approximately **8,990 MiB** of GPU memory. Physical camera access and a separate visiting device were not exercised in this check.
+- `systemd-analyze --user verify`, Compose configuration checks, and `git diff --check` passed.
+
 # Docker HTTPS validation — 2026-09-05
 
 - Reproduced the reported failure: the running frontend had `HTTPS_ENABLED=false`, and an HTTPS request failed with OpenSSL `wrong version number`. The existing certificate also omitted the Tailscale IP used by the visiting browser.
@@ -9,7 +19,7 @@
 - Isolated containers verified that default/explicit HTTPS without certificates and invalid HTTPS settings fail clearly. Explicit HTTP mode without certificates passed its healthcheck and proxied the API.
 - **8 certificate-helper tests passed**, covering additional IP/DNS names, option rejection, help without dependencies, and the existing generation/failure cases. Shell syntax, default/live Compose configuration, and `git diff --check` passed.
 
-To repeat the browser suite against Docker after starting the HTTPS containers, run from `frontend/`:
+The full browser suite below expects a **mock backend**. On a test deployment, select base-only Compose with `docker compose -f docker-compose.yml up -d` before running it; the saved live override intentionally supplies real inference instead. To repeat the suite against those mock HTTPS containers, run from `frontend/`:
 
 ```bash
 NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" VITE_HTTPS=true npm test
@@ -23,7 +33,7 @@ Outside CI the Playwright configuration reuses the healthy services on ports 800
 - Demo backend: **35 passed**, including multipart forwarding, native decision mapping, SSE order, parse failure, timeout/unavailable, policy absence, and no mock fallback.
 - HTTPS Playwright: **28 passed**, including synthetic camera-to-JPEG upload and uploaded-image-to-JPEG upload; no unsolicited POSTs.
 - Production build passed (TypeScript + Vite).
-- Default and Linux real-mode Compose configuration validated. The later Docker HTTPS validation above verifies container execution in mock mode; real-mode container inference remains unverified.
+- Default and Linux real-mode Compose configuration validated. The later Docker validations above now verify both mock execution and real model inference through the containers.
 - Real Gemma 3 4B smoke passed: first request ~7.98 s including load, ~1.55 s inference; warmed requests ~0.95–0.98 s. Pinned revision and BF16 retained. GPU initially 15 / 24,564 MiB; resident ~9,013 MiB; peak torch allocation 8,866,027,008 bytes.
 - Actual HTTPS browser → multipart → Demo → Prototype → Gemma → SSE → ALLOWED confirmed with a temporary local business-card image. Raw CALL output visible, secure context true, no mixed-content requests, no page errors, no horizontal overflow at 1600×1000.
 - Real HTTP/SSE end-to-end also returned BLOCKED (native CONFIRM for missing evidence) and Guard OFF EXECUTED. These are authorization/integration checks, not proof of attack prevention.

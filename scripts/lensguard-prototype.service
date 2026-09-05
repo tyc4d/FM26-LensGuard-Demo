@@ -1,0 +1,14 @@
+[Unit]
+Description=LensGuard local Prototype inference runtime
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/FM26-LensGuard-Prototype
+ExecStart=%h/venvs/lensguard-vlm/bin/python -m prototype_demo_server --model gemma3-4b --host 127.0.0.1 --port 8010
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

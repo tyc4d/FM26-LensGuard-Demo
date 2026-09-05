@@ -171,6 +171,8 @@ If installing a development CA is impractical, use a trusted HTTPS tunnel or a r
 
 ## Docker Compose
 
+The base `docker-compose.yml` runs **mock mode**. For real Gemma inference, follow [Docker and real mode](#docker-and-real-mode) to start the host Prototype service and enable `docker-compose.live.yml`. Changing `backend/.env` does not configure Docker: that file is neither copied into the backend image nor passed to Compose. Persist the live override with `COMPOSE_FILE` in the repository-root `.env` as shown below.
+
 Docker uses HTTPS by default. Generate and trust the local certificates before the first startup, following the [HTTPS setup](#https-for-camera-access), then run from the repository root:
 
 ```bash
@@ -190,7 +192,7 @@ This serves <http://localhost:5173> without certificates; camera access over a p
 
 Compose mounts `./certs` read-only at `/etc/lensguard/certs`; private keys are never baked into images. The existing nginx container selects HTTP or TLS configuration at startup and fails clearly if HTTPS certificates are missing. After replacing certificates, run `HTTPS_ENABLED=true docker compose up -d --force-recreate frontend` to reload them. The internal healthcheck probes the selected protocol; its HTTPS liveness probe skips CA verification because the local CA is not installed inside the image. Browser certificate verification remains enabled.
 
-The API is also available at <http://localhost:8000/api/health> for direct local diagnostics. Compose waits for backend health before starting the frontend. Nginx serves the production build and forwards `/api/` to FastAPI with response buffering disabled for SSE; HTTPS browsers use this same-origin proxy.
+The API is also available at <http://localhost:8000/api/health> for direct local diagnostics. Compose waits for backend health before starting the frontend. Container health confirms that the Demo responds; inspect the response's `runtime` and `prototype` fields to confirm the selected mode and upstream availability. Nginx serves the production build and forwards `/api/` to FastAPI with response buffering disabled for SSE; HTTPS browsers use this same-origin proxy.
 
 ```bash
 docker compose down
@@ -364,13 +366,53 @@ The exact trusted task `幫我撥打這張名片上的電話` grants a narrow de
 
 ### Docker and real mode
 
-The default Compose setup runs explicit mock mode with HTTPS enabled. On this Linux server, real mode uses a small host-network override so the Prototype remains loopback-only. Generate certificates using the [HTTPS setup](#https-for-camera-access) before starting it:
+The base Compose file runs mock mode. Real mode requires the host Prototype runtime and `docker-compose.live.yml`, which connects the container backend to the runtime on host loopback. This override is Linux-specific and requires Docker Compose 2.24.4+.
+
+First check `curl http://127.0.0.1:8010/health` and existing processes. Reuse an existing Prototype runtime; do not start a second copy. For a managed service on this server, [scripts/lensguard-prototype.service](scripts/lensguard-prototype.service) uses the existing `%h/venvs/lensguard-vlm` Python environment and `%h/FM26-LensGuard-Prototype` checkout, where `%h` is your home directory. It does not install or change the model stack. Check the [GPU prerequisites](#prerequisites-and-gpu-safety) before use.
+
+If no Prototype runtime is already running, install the user service once from the **Demo repository root**:
+
+```bash
+mkdir -p ~/.config/systemd/user
+ln -s "$PWD/scripts/lensguard-prototype.service" ~/.config/systemd/user/lensguard-prototype.service
+systemctl --user daemon-reload
+systemctl --user enable --now lensguard-prototype.service
+systemctl --user status lensguard-prototype.service
+```
+
+Skip link creation if the unit is already installed. Enabling a user service starts it with the user manager, normally at login; this setup does not enable lingering or promise startup at boot without login. Its lifetime follows the user manager. The service listens only on `127.0.0.1:8010` and loads Gemma lazily on the first image or warmup request. The existing GPU preflight still applies.
+
+Generate certificates using the [HTTPS setup](#https-for-camera-access), then add or update these settings in the **repository-root `.env`**:
+
+```dotenv
+HTTPS_ENABLED=true
+COMPOSE_FILE=docker-compose.yml:docker-compose.live.yml
+```
+
+Now ordinary Compose commands retain real mode:
+
+```bash
+docker compose up --build -d
+curl http://localhost:8000/api/health
+```
+
+Confirm `runtime` is `prototype`. The nested `prototype.status` should be `unloaded` before the first inference or `ready` after successful inference, with no upstream error; `prototype.model_loaded` indicates whether the model is resident. A Docker `healthy` label or HTTP 200 alone does not establish a connection to Gemma. `prototype.status: unavailable` means the upstream service cannot be reached; the Demo never falls back to mock mode automatically.
+
+To select the override for a single command without persisting `COMPOSE_FILE`:
 
 ```bash
 HTTPS_ENABLED=true docker compose -f docker-compose.yml -f docker-compose.live.yml up --build
 ```
 
-Start the Prototype on the host first. This override runs the Demo backend on host port 8000 and points nginx to the host gateway. Do not run the host Demo backend on that port simultaneously. Certificates are still mounted read-only; neither model weights nor Prototype files are built into Demo images. Host networking is Linux-specific; for the fewest moving parts use the three local commands above.
+This override runs the Demo backend on host port 8000 and points nginx to the host gateway. Do not run the host Demo backend on that port simultaneously. Certificates are still mounted read-only; neither model weights nor Prototype files are built into Demo images.
+
+`docker compose down` stops the Demo containers but leaves the host Prototype service running. Stop the service when finished to release any resident model GPU memory:
+
+```bash
+systemctl --user stop lensguard-prototype.service
+```
+
+Use `systemctl --user start lensguard-prototype.service` before the next live demo. To return Docker to mock mode, remove or comment out `COMPOSE_FILE` in the root `.env` and rerun `docker compose up --build -d`.
 
 ## Known limitations
 
