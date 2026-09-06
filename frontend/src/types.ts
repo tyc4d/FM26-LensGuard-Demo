@@ -138,7 +138,15 @@ export interface Health {
   status: 'ok';
   runtime: 'mock' | 'prototype';
   model: string;
-  prototype?: { model_profile?: string; status: string; model_loaded: boolean; error?: string | null; raw_error?: string | null } | null;
+  prototype?: {
+    model_profile?: string;
+    model_id?: string;
+    status: string;
+    model_loaded: boolean;
+    gpu_memory?: { name: string; used_mib: number; total_mib: number } | null;
+    error?: string | null;
+    raw_error?: string | null;
+  } | null;
 }
 
 export interface CapturedFrame { blob: Blob; source: "camera" | "uploaded_image"; captureMs: number }

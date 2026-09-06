@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CameraPanel, type CameraCapture } from './components/CameraPanel';
+import { RuntimeInfo } from './components/RuntimeInfo';
 import { DetailsDrawer } from './components/story/DetailsDrawer';
 import { DemoExperience } from './components/experience/DemoExperience';
 import { sampleScene } from './components/experience/SampleScene';
@@ -122,6 +123,7 @@ export default function App() {
   return <div className="experience-page" lang="zh-Hant">
     <header className="experience-header">
       <button className="experience-wordmark" aria-label="LensGuard · 選擇場景" title="選擇場景（S）" onClick={() => setSetup(true)} disabled={busy}>LensGuard</button>
+      <RuntimeInfo health={demo.health} connected={demo.connected} />
       {debugEnabled && <button className="developer-details" onClick={() => setDetails(true)}>細節</button>}
     </header>
     <main className="experience-main">

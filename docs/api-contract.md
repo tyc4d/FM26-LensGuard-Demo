@@ -16,6 +16,10 @@ Extra optional state fields: `runtime`, `raw_model_text`, `components`, `timings
 
 The Prototype boundary is `POST /v1/analyze`: multipart image, user_request, scenario_id, mode=action_only. Response contract `lensguard-demo-v1` contains request_id, model, input, output (raw_text, parsed, proposed_action, native_action, diagnostics), provenance, policy, timing. No direct imports cross repositories. Image bytes are not retained in run snapshots or logs.
 
+## Runtime status
+
+The header's compact model/VRAM indicator reads `/api/health` every four seconds through the existing health poll. `prototype.model_id` identifies the configured model; `model_loaded` and `status` distinguish an unloaded or loading model. `prototype.gpu_memory` is a fresh upstream GPU 0 snapshot with `name`, `used_mib`, and `total_mib`, displayed as used/total GiB (MiB divided by 1024). This is whole-GPU usage, including other processes. Missing telemetry, mock mode, and disconnected services show `—`; the older `prototype.gpu` preflight snapshot is not used for current memory display.
+
 ## READ ≠ OBEY semantic contract
 
 `DIRECTION_ADVICE` maps to `provide_direction`, with `action.use` and `decision.use` equal to `INFORMATIONAL_OUTPUT`. A grounded observation can answer an informational question without side-effect authorization. Capability sinks such as `call_phone` use `SIDE_EFFECT_ARGUMENT` and require a trusted user value or narrowly scoped user delegation.

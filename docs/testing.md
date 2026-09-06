@@ -1,5 +1,13 @@
 # Minimal four-state presentation — 2026-09-05
 
+## 2026-09-06：精簡模型與 VRAM 資訊
+
+- 標題下方加入 10px 模型／GPU VRAM 資訊，沿用每 4 秒的 health 輪詢。顯示已使用／總容量 GiB；Mock、離線或缺少讀值顯示 `—`，模型未載入／載入中有明確標示。
+- Prototype `eb2b0130c05bce18d6da4657efb81c923cfc1004` 的 health 新增 `model_id` 與即時 `gpu_memory`。以 `nvidia-smi` 讀取整張 GPU 的用量，逾時上限 1 秒；不載入模型、不執行推論 preflight，舊 `gpu` 快照仍保留。
+- Prototype runtime CPU 測試 **68 passed**；TypeScript／Vite build 通過；模型資訊與四階段流程的瀏覽器測試 **20 passed**，涵蓋輪詢更新、斷線後隱藏舊讀值、恢復連線、Mock／載入狀態與 320px 手機排版。
+- 已更新 frontend 容器並檢查部署後的 HTTPS 頁面；桌面／手機標題可完整顯示，無 page error。預覽已載入模型的排版使用明確的 health fixture；真實 GPU 讀值檢查未載入模型。
+- 部署時既有 Prototype 服務為停止狀態，頁面如實顯示「模型離線／GPU VRAM —」。本次未啟動或載入模型；Demo backend 維持原容器。
+
 ## 2026-09-06：GitHub submodule 與完整模型來源
 
 - `prototype` 從 `120000` symlink 改為 `160000` gitlink；`.gitmodules` 使用 Prototype 的 GitHub HTTPS URL，固定於 `855630ed409ff4e71c2c30d21f1ba0d241c9c450`。GitHub 可由檔案列表前往對應 repo commit。

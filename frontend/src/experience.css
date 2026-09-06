@@ -1,8 +1,11 @@
 :root { --paper: #f2f0e9; --ink: #191a17; --yellow: #f3cc53; --confirm: #8dad87; --suppress: #e48576; background: var(--paper); color: var(--ink); }
 body { min-width: 320px; }
 .experience-page { min-height: 100svh; padding: 0 32px 32px; }
-.experience-header { width: min(100%, 1000px); height: clamp(80px, 14vh, 140px); margin: 0 auto; display: flex; align-items: center; justify-content: center; position: relative; }
+.experience-header { width: min(100%, 1000px); height: clamp(80px, 14vh, 140px); margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
 .experience-wordmark { border: 0; color: var(--ink); font-size: 25px; letter-spacing: -1.2px; font-weight: 650; position: relative; padding: 12px 16px; }
+.runtime-info { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 10px; max-width: 100%; color: #636459; font: 10px/1.4 var(--font-mono); }
+.runtime-model { min-width: 0; overflow-wrap: anywhere; text-align: center; }
+.runtime-memory { padding-left: 10px; border-left: 1px solid #c9c9bc; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .developer-details { position: absolute; right: 0; border: 0; font: 10px var(--font-mono); color: #626259; }
 .experience-main { width: min(100%, 1000px, calc((100svh - clamp(80px, 14vh, 140px) - 208px) * 1.6)); min-width: min(100%, 480px); margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
 .demo-experience { width: 100%; position: relative; padding-top: 35px; }
