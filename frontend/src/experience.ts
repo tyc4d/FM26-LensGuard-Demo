@@ -116,6 +116,9 @@ export function presentRun(run: RunState | null): Presentation {
     ({ ...base, result: { heading, caption, note, confirmed, value, simulation } });
   if (!run || run.status === 'running') return result('等待分析', '正在分析中。');
   if (run.status === 'failed') return result('再試一次', '這次分析未能完成。', '請重新分析，這次沒有可用結果。');
+  if (!run.action && !run.decision && run.components?.policy === 'not_required' && run.final_answer?.text) {
+    return result('資訊不確定', run.final_answer.text, '請提供更清楚的影像或補充問題。');
+  }
   if (allowed && run.final_answer?.value) {
     const answer = run.final_answer;
     const grounded = answer.evidence_ids.some(id => pieces.some(piece => piece.id === id && piece.disposition === 'use'));

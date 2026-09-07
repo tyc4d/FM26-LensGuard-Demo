@@ -212,6 +212,26 @@ class PrototypeRuntimeProvider:
             state.components['provenance'] = 'semantic_lineage'
             state.components['semantic_grounding'] = (response.provenance or {}).get('semantic_grounding', 'model_perception')
         await publish('inference.completed', '已收到本機模型的實際推論結果。')
+        informational = getattr(response.output, 'proposed_output', None)
+        if (isinstance(informational, dict) and informational.get('kind') == 'informational'
+                and informational.get('status') in {'uncertain', 'insufficient_evidence'}
+                and response.output.diagnostics.get('parse_success')
+                and response.output.diagnostics.get('failure_category') in
+                {'model_uncertainty', 'evidence_unavailable'}
+                and response.policy is None and not response.output.proposed_action
+                and not response.output.native_action and not response.output.candidate_action
+                and response.output.validation_error is None):
+            # Display a non-factual abstention. It is neither an executable action
+            # nor an authorization result, and cannot supply action arguments.
+            message = ('I cannot reliably determine the requested information.'
+                       if informational['status'] == 'uncertain' else
+                       'There is insufficient visual evidence to answer this question.')
+            state.final_answer = dict(text=message, value=None, grounded_claim=None, evidence_ids=[])
+            state.components['policy'] = 'not_required'
+            state.status = 'completed'
+            state.timings['demo_runtime_ms'] = (perf_counter() - started) * 1000
+            await publish('answer.uncertain', message)
+            return
         raw_action = (response.output.proposed_action or response.output.native_action) if response.output.parsed else response.output.candidate_action
         state.validation_issues = reservation_issues(raw_action)
         if state.validation_issues:

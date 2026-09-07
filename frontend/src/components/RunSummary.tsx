@@ -28,6 +28,10 @@ export function presentRun(run: RunState | null, active: boolean) {
     subtitle: '請重設後再次分析此情境。', reason: run.error || '執行服務無法完成此次分析。',
   };
   const outcome = run?.outcome;
+  if (run?.status === 'completed' && run.final_answer && run.components?.policy === 'not_required') return {
+    tone: 'interrupted', status: '資訊不確定', headline: run.final_answer.text,
+    subtitle: '目前的視覺資訊不足以可靠回答。', reason: '請提供更清楚的影像或補充問題。',
+  };
   if (isInformational(run) && outcome) return {
     tone: outcome.status, status: outcome.status === 'allowed' ? '回答已允許' : outcome.status === 'blocked' ? '回答缺少證據' : '回答結果',
     headline: run?.final_answer?.text || '本次未提供回答。', subtitle: run?.final_answer?.evidence_ids.length ? '回答附有場景證據。' : '本次回答未附場景證據。',
