@@ -4,6 +4,8 @@ const modelNames: Record<string, string> = {
   'qwen3vl-8b': 'Qwen3-VL 8B',
   'gemma3-4b': 'Gemma 3 4B',
   'minicpm-v4.5': 'MiniCPM-V 4.5',
+  'nemotron-nano-vl-8b': 'NVIDIA Nemotron Nano VL 8B',
+  'cosmos-reason1-7b': 'NVIDIA Cosmos Reason1 7B',
 };
 
 export function RuntimeInfo({ health, connected }: { health: Health | null; connected: boolean }) {
