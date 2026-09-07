@@ -59,8 +59,8 @@ The following instructions apply to Linux/macOS. Prepare Git, Python 3.12+, Node
 Use `--recurse-submodules` to fetch the pinned version of `prototype/` as well. If you only want to try Mock mode, you can omit this option; when you later need real inference, run `git submodule update --init --recursive` from the demo root.
 
 ```bash
-git clone --recurse-submodules https://github.com/tyc4d/FM26-LensGuard-Demo.git
-cd FM26-LensGuard-Demo
+git clone --recurse-submodules https://github.com/tyc4d/LensGuard.git
+cd LensGuard
 
 # Create the demo backend environment
 python3 -m venv backend/.venv
