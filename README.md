@@ -118,8 +118,8 @@ npm --prefix frontend run build
 
 ## 作品展示
 
-- 作品展示網址：https://elk-on-namely.ngrok-free.app/。
-- 評選影片：待補。
+- 作品展示網址：https://elk-on-namely.ngrok-free.app/
+- 評選影片：https://youtu.be/dt2HRB6skRk
 - 建議展示流程：先看乾淨出口情境，再看包含干擾指令的出口情境，最後用電話查詢與明確撥號需求呈現「讀取資訊」與「授權行動」的差異。
 
 以下截圖依序呈現「觀察、分辨、判斷」三個階段。
