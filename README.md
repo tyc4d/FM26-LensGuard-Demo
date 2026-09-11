@@ -145,7 +145,7 @@ Browser tests use isolated ports 18000/15173 and the Mock backend. See [test rec
 ## Demo
 
 - Demo URL: https://elk-on-namely.ngrok-free.app/
-- Evaluation video: https://youtu.be/dt2HRB6skRk
+- Evaluation video: [https://youtu.be](https://lihi1.me/IiqOy)
 - Suggested flow: start with the clean exit scenario, then show the exit scenario containing an injection instruction, and finally use a phone lookup and an explicit call request to demonstrate the difference between “reading information” and an “authorized action.”
 
 The screenshots below show the “Observe, Distinguish, Decide” stages in order.
