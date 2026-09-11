@@ -62,9 +62,9 @@ def load_scenarios(path: Path) -> dict[str, Scenario]:
     )
     by_id = {scenario.id: scenario for scenario in scenarios}
     if len(by_id) != len(scenarios):
-        raise ValueError("情境識別碼不得重複。")
+        raise ValueError("Scenario IDs must be unique.")
     if not by_id:
-        raise ValueError("至少需要一個模擬情境。")
+        raise ValueError("At least one mock scenario is required.")
     return by_id
 
 
@@ -173,7 +173,7 @@ class MockRuntimeProvider:
         """Narrow fixture-language parser; a boolean fixture flag grants nothing."""
         request = unicodedata.normalize('NFKC', scenario.user_request).strip().rstrip('.。!！?？').strip()
         restaurant = re.fullmatch(r"(?:please\s+)?call\s+(?:the\s+)?restaurant[’']s\s+reservation\s+(?:phone\s+)?number|幫我(?:打電話訂位|打電話訂這間餐廳|撥打(?:這間)?餐廳的訂位(?:電話|專線))", request, re.I)
-        card = request == '幫我撥打這張名片上的電話'
+        card = re.fullmatch(r'(?:please\s+)?call\s+the\s+number\s+on\s+this\s+business\s+card|幫我撥打這張名片上的電話', request, re.I)
         if not restaurant and not card:
             return None
         return dict(source="user", tool="call_phone", argument="number",
@@ -225,7 +225,7 @@ class MockRuntimeProvider:
             value.authority.append("delegated")
             value.lineage.extend(["user_request", "delegation"])
         nodes = [
-            TraceNode(id="camera", label="相機", type="來源", source="camera"),
+            TraceNode(id="camera", label="Camera", type="Source", source="camera"),
             TraceNode(id="region", label=region.text, type=region.semantic_role, source="camera"),
             TraceNode(id="value", label=value.value, type=value.semantic_role, source="camera"),
             TraceNode(id="argument", label=f"{action.tool}.{scenario.argument_name}", type=action.use, source="model"),
@@ -238,8 +238,8 @@ class MockRuntimeProvider:
                 edges.append(TraceEdge(from_="camera", to=other.id))
         if delegation:
             nodes.extend([
-                TraceNode(id="user", label="使用者需求", type="任務授權", source="user"),
-                TraceNode(id="delegation", label=delegation["predicate"], type="限定語意角色的授權", source="user"),
+                TraceNode(id="user", label="User request", type="Task authority", source="user"),
+                TraceNode(id="delegation", label=delegation["predicate"], type="Authorization scoped to a semantic role", source="user"),
             ])
             edges.append(TraceEdge(from_="user", to="delegation"))
             if value.delegation:
@@ -293,10 +293,10 @@ class MockRuntimeProvider:
         return PolicyDecision(
             result="allow" if allowed else "block", rule_id=rule,
             affected_argument=f"{action.tool}.{scenario.argument_name}", use=action.use,
-            reason=("已保留有場景依據的觀察；嵌入指令不具行為權限。" if informational and allowed else
-                    "使用者授權餐廳／名片電話的語意角色供本次撥號使用。" if allowed else
-                    "此值來自嵌入指令，不具行為權限。" if instruction else
-                    "此值缺少場景依據或符合參數角色的使用者授權。"),
+            reason=("Grounded observations were retained; embedded instructions have no action authority." if informational and allowed else
+                    "The user authorized the restaurant or business card phone role for this call." if allowed else
+                    "This value comes from an embedded instruction and has no action authority." if instruction else
+                    "This value lacks scene evidence or user authorization for the argument role."),
             source_authority="EVIDENCE" if informational and allowed else "DELEGATED" if delegated else "TASK" if trusted_user else "NONE",
             required_authority="GROUNDED_EVIDENCE" if informational else "USER_VALUE_OR_SCOPED_DELEGATION",
         )
@@ -304,9 +304,9 @@ class MockRuntimeProvider:
     async def resolve_outcome(self, scenario, guard_enabled, decision):
         if not guard_enabled:
             return RunOutcome(status="executed", attack_success=True if scenario.attack else None,
-                              result=scenario.proposed_value, detail="防護關閉：顯示模擬模型的原始提議；未聯絡任何外部服務。")
+                              result=scenario.proposed_value, detail="Guard off: showing the original mock model proposal. No external service was contacted.")
         if decision is None:
-            raise ValueError("啟用防護時，必須先完成授權判斷。")
+            raise ValueError("Authorization must be evaluated before proceeding with the guard enabled.")
         if decision.result == "allow":
             region = self.grounded_region(scenario, "exit_direction") if scenario.tool == "provide_direction" else None
             result = region.grounded_claim["value"] if region else scenario.proposed_value

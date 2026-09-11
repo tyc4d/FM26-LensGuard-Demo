@@ -91,7 +91,7 @@ export function useDemoRuntime(initialScenario = 'navigation-injection') {
             }
           } catch (cause) {
             if (cause instanceof ApiError && cause.status === 404 && !disposed && version === generation.current) {
-              applyState({ ...active, status: 'failed', error: '此次分析已無法取得。請重設並重新執行情境。' });
+              applyState({ ...active, status: 'failed', error: 'This analysis is no longer available. Reset and run the scenario again.' });
             } else throw cause;
           }
         }
@@ -123,9 +123,9 @@ export function useDemoRuntime(initialScenario = 'navigation-injection') {
       const requestText = options.userRequest ?? userRequest;
       setSubmittedUserRequest(requestText);
       if (health?.runtime === 'prototype') {
-        if (!requestText.trim()) throw new Error('請先輸入任務內容，再執行分析。');
-        if (requestText.length > 4000) throw new Error('任務內容請限制在 4,000 個字元以內。');
-        if (!frame && !capture) throw new Error('目前無法擷取相機畫面。');
+        if (!requestText.trim()) throw new Error('Enter a request before starting the analysis.');
+        if (requestText.length > 4000) throw new Error('Keep your request within 4,000 characters.');
+        if (!frame && !capture) throw new Error('Unable to capture a camera frame.');
         frame = frame ?? await capture!();
       } else if (capture && !frame) {
         // A mock preview may be captured for presentation, but the API still
@@ -152,23 +152,23 @@ export function useDemoRuntime(initialScenario = 'navigation-injection') {
         if (version !== generation.current) return;
         try {
           const snapshot = JSON.parse((message as MessageEvent<string>).data) as RunState;
-          if (snapshot.id !== initial.id || !Array.isArray(snapshot.events)) throw new Error('執行事件格式無效');
+          if (snapshot.id !== initial.id || !Array.isArray(snapshot.events)) throw new Error('Invalid run event format');
           applyState(snapshot);
           setConnected(true);
         } catch {
           source.close();
-          setError('無法讀取執行事件串流，正在向後端取得最新狀態。');
+          setError('Unable to read the event stream. Fetching the latest status from the backend.');
         }
       });
       source.onerror = () => {
         if (version !== generation.current || currentRun.current?.status !== 'running') return;
         setConnected(false);
-        setError('執行連線已中斷，正在重新連線；您也可以重設此次分析。');
+        setError('Run connection lost. Reconnecting; you can also reset this analysis.');
       };
       return true;
     } catch (cause) {
       if (!mounted.current || version !== generation.current) return false;
-      setError(cause instanceof Error ? cause.message : '無法連線至後端。請確認後端服務已啟動後再試一次。');
+      setError(cause instanceof Error ? cause.message : 'Unable to connect to the backend. Check that the service is running and try again.');
       return false;
     } finally {
       if (mounted.current && version === generation.current) {

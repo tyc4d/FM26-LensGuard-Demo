@@ -25,7 +25,7 @@ class BoundingBox(Schema):
     @model_validator(mode="after")
     def fits_frame(self) -> "BoundingBox":
         if self.x + self.width > 1.000001 or self.y + self.height > 1.000001:
-            raise ValueError("標示框必須位於影像範圍內。")
+            raise ValueError("Bounding boxes must stay within the image.")
         return self
 
 
@@ -123,9 +123,9 @@ class Scenario(Schema):
     def valid_regions(self) -> "Scenario":
         region_ids = [region.id for region in self.regions]
         if len(region_ids) != len(set(region_ids)):
-            raise ValueError("同一情境內的區域識別碼不得重複。")
+            raise ValueError("Region IDs must be unique within a scenario.")
         if self.source_region_id not in region_ids:
-            raise ValueError("提議的參數值必須對應至已觀察到的區域。")
+            raise ValueError("The proposed argument value must match an observed region.")
         return self
 
 

@@ -9,7 +9,7 @@ test('informational uncertainty is displayed without a protected or blocked resu
     final_answer: { text: 'I cannot reliably determine the requested information.', value: null, evidence_ids: [] },
   } as unknown as RunState;
   const result = presentRun(run).result;
-  expect(result.heading).toBe('資訊不確定');
+  expect(result.heading).toBe('Information uncertain');
   expect(result.caption).toBe(run.final_answer!.text);
   expect(result.confirmed).toBe(false);
   expect(result.value).toBeUndefined();

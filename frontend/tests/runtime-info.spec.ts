@@ -24,7 +24,7 @@ test('runtime indicator follows health polling and hides memory after disconnect
   await expect(info).toContainText('GPU VRAM 16.00 / 24.00 GiB');
   offline = true;
   await page.clock.runFor(4100);
-  await expect(info).toContainText('連線中斷');
+  await expect(info).toContainText('Disconnected');
   await expect(info).toContainText('GPU VRAM —');
   await expect(info).not.toContainText('16.00');
   offline = false;
@@ -43,9 +43,9 @@ for (const state of ['mock', 'unloaded', 'loading', 'unavailable', 'missing-memo
     await page.goto('/');
     const info = page.locator('.runtime-info');
     await expect(info).toContainText('GPU VRAM —');
-    await expect(info).toContainText(state === 'mock' ? 'Mock' : state === 'unavailable' ? '模型離線' : 'Qwen3-VL 8B');
-    if (state === 'unloaded') await expect(info).toContainText('未載入');
-    if (state === 'loading') await expect(info).toContainText('載入中');
+    await expect(info).toContainText(state === 'mock' ? 'Mock' : state === 'unavailable' ? 'Model offline' : 'Qwen3-VL 8B');
+    if (state === 'unloaded') await expect(info).toContainText('(not loaded)');
+    if (state === 'loading') await expect(info).toContainText('(loading)');
   });
 }
 

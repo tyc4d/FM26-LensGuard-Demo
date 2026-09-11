@@ -19,21 +19,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     });
     if (!response.ok) {
       const body = await response.json().catch(() => null);
-      throw new ApiError(typeof body?.detail === 'string' ? body.detail : `請求失敗（${response.status}）。`, response.status);
+      throw new ApiError(typeof body?.detail === 'string' ? body.detail : `Request failed (${response.status}).`, response.status);
     }
     return await response.json() as T;
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === 'TimeoutError') {
-      throw new Error('後端回應逾時，請稍後再試。');
+      throw new Error('The backend response timed out. Please try again later.');
     }
     if (cause instanceof DOMException && cause.name === 'AbortError') {
-      throw new Error('後端請求已中止，請再試一次。');
+      throw new Error('The backend request was cancelled. Please try again.');
     }
     if (cause instanceof TypeError) {
-      throw new Error('無法連線至後端。請確認網路連線與後端服務後再試一次。');
+      throw new Error('Unable to connect to the backend. Check your network and the backend service, then try again.');
     }
     if (cause instanceof SyntaxError) {
-      throw new Error('後端回應格式無效，請稍後再試。');
+      throw new Error('Invalid backend response. Please try again later.');
     }
     throw cause;
   }

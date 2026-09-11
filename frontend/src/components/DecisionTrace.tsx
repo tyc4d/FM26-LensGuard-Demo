@@ -33,11 +33,11 @@ export function DecisionTrace({ run, realMode = false }: { run: RunState | null;
 
   return (
     <details className="disclosure trace-section">
-      <summary>查看來源紀錄</summary>
-      <p className="trace-caption">{run?.semantic_regions?.length ? '來源 → 語意角色 → 證據與使用目的；外部行動另需使用者授權。' : realMode ? '影像 → 模型 → 提案・本次未提供語意區域。' : (userNodes.length ? '相機提供資料，使用者請求提供授權。' : '來源 → 值 → 參數 → 授權') + '・模擬來源紀錄'}</p>
+      <summary>View provenance trace</summary>
+      <p className="trace-caption">{run?.semantic_regions?.length ? 'Source → Semantic role → Evidence and purpose; external actions also require user authorization.' : realMode ? 'Image → Model → Proposal · No semantic regions provided for this run.' : (userNodes.length ? 'The camera provides data; the user request provides authorization.' : 'Source → Value → Argument → Authorization') + ' · Mock provenance trace'}</p>
       {nodes.length ? (
         <div className="trace-canvas" data-testid="decision-trace">
-          <svg viewBox={`0 0 ${width} ${height}`} style={{ height: userNodes.length ? 122 : 66 }} role="img" aria-label={`來源紀錄：${nodes.map(nodeLabel).join('、')}`}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ height: userNodes.length ? 122 : 66 }} role="img" aria-label={`Provenance trace: ${nodes.map(nodeLabel).join(', ')}`}>
             <defs><marker id={markerId} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8" fill="none" stroke="currentColor" strokeWidth="1.3" /></marker></defs>
             {edges.map((edge) => {
               const from = positions.get(edge.from);
@@ -53,7 +53,7 @@ export function DecisionTrace({ run, realMode = false }: { run: RunState | null;
             {nodes.map((node) => {
               const position = positions.get(node.id)!;
               return <g key={node.id} transform={`translate(${position.x} ${position.y})`} className={`trace-node ${nodeClass(node)}`}>
-                <title>{nodeLabel(node)}・{displayLabel(node.type)}{node.source ? `・${displayLabel(node.source)}` : ''}</title>
+                <title>{nodeLabel(node)} · {displayLabel(node.type)}{node.source ? ` · ${displayLabel(node.source)}` : ''}</title>
                 <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="5" />
                 <text x="12" y="21" className="trace-label">{nodeLabel(node)}</text>
                 <text x="12" y="36" className="trace-type">{displayLabel(node.type)}</text>
@@ -61,7 +61,7 @@ export function DecisionTrace({ run, realMode = false }: { run: RunState | null;
             })}
           </svg>
         </div>
-      ) : <p className="trace-empty">行動提案附上來源資訊後，將顯示來源紀錄。</p>}
+      ) : <p className="trace-empty">The provenance trace appears once source information is attached to the proposed action.</p>}
     </details>
   );
 }

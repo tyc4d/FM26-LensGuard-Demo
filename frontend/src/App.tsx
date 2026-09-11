@@ -12,9 +12,9 @@ import './experience.css';
 import './semantic.css';
 
 const sceneNames: Record<string, string> = {
-  'navigation-injection': '出口 · 含干擾指令', 'clean-navigation': '出口 · 乾淨場景',
-  'reservation-injection': '餐廳 · 含干擾指令', 'reservation-delegation': '餐廳 · 乾淨場景',
-  'explicit-delegation': '名片 · 乾淨場景',
+  'navigation-injection': 'Exit · Injected instructions', 'clean-navigation': 'Exit · Clean scene',
+  'reservation-injection': 'Restaurant · Injected instructions', 'reservation-delegation': 'Restaurant · Clean scene',
+  'explicit-delegation': 'Business card · Clean scene',
 };
 
 export default function App() {
@@ -39,7 +39,7 @@ export default function App() {
   const imageUrl = real ? frameUrl : sampleUrl;
   const debugEnabled = new URLSearchParams(window.location.search).has('debug');
 
-  useEffect(() => { document.title = 'LensGuard · 觀察、分辨、判斷、保護'; }, []);
+  useEffect(() => { document.title = 'LensGuard · Observe, Distinguish, Decide, Protect'; }, []);
   useEffect(() => {
     if (!frame) { setFrameUrl(null); return; }
     const url = URL.createObjectURL(frame.blob);
@@ -94,12 +94,12 @@ export default function App() {
     try {
       const snapshot = await captureRef.current?.capture();
       if (version !== captureVersion.current) return;
-      if (!snapshot) throw new Error('請選擇圖片或啟動相機。');
+      if (!snapshot) throw new Error('Choose an image or start the camera.');
       invalidate();
       setFrame(snapshot);
       closeSetup();
     } catch (cause) {
-      if (version === captureVersion.current) setCaptureError(cause instanceof Error ? cause.message : '無法讀取圖片。');
+      if (version === captureVersion.current) setCaptureError(cause instanceof Error ? cause.message : 'Unable to read the image.');
     } finally { if (version === captureVersion.current) setCapturing(false); }
   }
   useEffect(() => {
@@ -117,41 +117,41 @@ export default function App() {
   });
 
   const canAnalyze = !!(demo.connected && demo.scenario && imageUrl && demo.userRequest.trim());
-  const error = captureError || (protectedRun?.status === 'failed' ? '分析未完成，請按「重播」後再試一次。'
-    : comparison.phase === 'failed' ? '目前無法完成分析，請再試一次。'
-    : comparison.busy && demo.error ? '連線暫時中斷，正在取得分析結果…' : null);
-  return <div className="experience-page" lang="zh-Hant">
+  const error = captureError || (protectedRun?.status === 'failed' ? 'Analysis did not finish. Select Replay and try again.'
+    : comparison.phase === 'failed' ? 'Unable to complete the analysis. Please try again.'
+    : comparison.busy && demo.error ? 'Connection interrupted. Retrieving analysis results…' : null);
+  return <div className="experience-page" lang="en">
     <header className="experience-header">
-      <button className="experience-wordmark" aria-label="LensGuard · 選擇場景" title="選擇場景（S）" onClick={() => setSetup(true)} disabled={busy}>LensGuard</button>
+      <button className="experience-wordmark" aria-label="LensGuard · Choose scene" title="Choose scene (S)" onClick={() => setSetup(true)} disabled={busy}>LensGuard</button>
       <RuntimeInfo health={demo.health} connected={demo.connected} />
-      {debugEnabled && <button className="developer-details" onClick={() => setDetails(true)}>細節</button>}
+      {debugEnabled && <button className="developer-details" onClick={() => setDetails(true)}>Details</button>}
     </header>
     <main className="experience-main">
       <DemoExperience stage={stage} presentation={presentation} baseline={comparison.without} showComparison={comparison.input?.compare === true} imageUrl={imageUrl}
-        imageAlt={real ? '本次送交分析的圖片' : '所選場景的範例圖片'}
-        query={demo.displayedUserRequest} sourceLabel={real ? frame?.source === 'camera' ? '相機畫面' : '上傳圖片' : '範例場景'}
+        imageAlt={real ? 'Image submitted for this analysis' : 'Sample image for the selected scene'}
+        query={demo.displayedUserRequest} sourceLabel={real ? frame?.source === 'camera' ? 'Camera frame' : 'Uploaded image' : 'Sample scene'}
         busy={busy} comparing={comparison.phase === 'without'} error={error} onChooseInput={() => setSetup(true)} />
       <button className="experience-next" onClick={() => void next()} disabled={busy || (stage === 'input' && !canAnalyze)}
         aria-keyshortcuts={stage === 'result' ? 'r' : 'ArrowRight'}>
-        {busy ? '分析中' : stage === 'input' ? '開始分析' : stage === 'result' ? '重播' : '下一步'}
+        {busy ? 'Analyzing' : stage === 'input' ? 'Start analysis' : stage === 'result' ? 'Replay' : 'Next'}
       </button>
-      {!demo.connected && <p className="connection-status" role="status">{demo.health ? '連線中斷，正在重新連線…' : '正在連線…'}</p>}
+      {!demo.connected && <p className="connection-status" role="status">{demo.health ? 'Connection lost. Reconnecting…' : 'Connecting…'}</p>}
     </main>
     <dialog ref={setupDialog} className="scene-dialog" aria-labelledby="scene-dialog-title" onCancel={event => { event.preventDefault(); closeSetup(); }}
       onClose={() => { if (setup) closeSetup(); }}>
-      <header><h2 id="scene-dialog-title">選擇場景</h2><button onClick={closeSetup} aria-label="關閉場景設定">×</button></header>
-      <label htmlFor="scene-select">場景</label>
+      <header><h2 id="scene-dialog-title">Choose scene</h2><button onClick={closeSetup} aria-label="Close scene settings">×</button></header>
+      <label htmlFor="scene-select">Scene</label>
       <select id="scene-select" value={demo.scenarioId} disabled={busy} onChange={event => { invalidate(); demo.selectScenario(event.target.value); }}>
         {demo.scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{sceneNames[scenario.id] ?? scenario.name}</option>)}
       </select>
       {real ? <>
-        <label htmlFor="scene-request">你的需求</label>
+        <label htmlFor="scene-request">Your request</label>
         <textarea id="scene-request" rows={2} maxLength={4000} value={demo.userRequest} disabled={busy}
-          onChange={event => { invalidate(); demo.editUserRequest(event.target.value); }} placeholder="你希望人工智慧完成什麼任務？" />
+          onChange={event => { invalidate(); demo.editUserRequest(event.target.value); }} placeholder="What would you like the AI to do?" />
         {setup && <CameraPanel captureRef={captureRef} disabled={capturing} />}
-      </> : <p className="scene-setup-note">目前使用預設範例；即時分析模式可使用相機或上傳圖片。</p>}
+      </> : <p className="scene-setup-note">Using preset examples. Live analysis supports the camera and uploaded images.</p>}
       {captureError && <p className="experience-error" role="alert">{captureError}</p>}
-      <button className="scene-apply" disabled={capturing || (real && !demo.userRequest.trim())} onClick={() => void acceptInput()}>{capturing ? '正在擷取…' : real ? '使用圖片' : '使用場景'}</button>
+      <button className="scene-apply" disabled={capturing || (real && !demo.userRequest.trim())} onClick={() => void acceptInput()}>{capturing ? 'Capturing…' : real ? 'Use image' : 'Use scene'}</button>
     </dialog>
     <DetailsDrawer open={details} onClose={() => setDetails(false)} run={protectedRun ?? demo.run} baseline={comparison.without} health={demo.health}
       query={demo.displayedUserRequest} frameUrl={frameUrl} realMode={real} />

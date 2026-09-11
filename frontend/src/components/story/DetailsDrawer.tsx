@@ -23,7 +23,7 @@ export interface DetailsDrawerProps {
 }
 
 function rawData(value: unknown): string {
-  if (value == null) return '尚無資料。';
+  if (value == null) return 'No data yet.';
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
@@ -52,48 +52,48 @@ export function DetailsDrawer({ open, onClose, run, baseline, health, query, fra
         if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
       }}>
       <header className="details-drawer-header">
-        <div><p className="details-drawer-eyebrow">LensGuard</p><h2 id={titleId}>技術追溯</h2></div>
-        <button type="button" className="details-drawer-close" onClick={onClose} autoFocus aria-label="關閉細節"><span aria-hidden="true">×</span><span>關閉細節</span></button>
+        <div><p className="details-drawer-eyebrow">LensGuard</p><h2 id={titleId}>Technical trace</h2></div>
+        <button type="button" className="details-drawer-close" onClick={onClose} autoFocus aria-label="Close details"><span aria-hidden="true">×</span><span>Close details</span></button>
       </header>
       <div className="details-drawer-content">
-        <p id={descriptionId} className="details-drawer-description">原始輸入、語意角色、支持證據與使用者授權。場景文字對應仍依賴文字擷取與分類結果。</p>
-        <section className="details-drawer-request" aria-label="本次使用者請求">
-          <h3>使用者請求</h3><p>{query || '尚未提供請求。'}</p>
+        <p id={descriptionId} className="details-drawer-description">Original input, semantic roles, supporting evidence, and user authorization. Scene text matching still depends on extraction and classification results.</p>
+        <section className="details-drawer-request" aria-label="Current user request">
+          <h3>User request</h3><p>{query || 'No request provided yet.'}</p>
         </section>
         <dl className="details-drawer-overview">
-          <div><dt>分析狀態</dt><dd>{run ? displayLabel(run.status) : '等待分析'}</dd></div>
-          <div><dt>執行模式</dt><dd>{realMode ? '本機模型' : '模擬資料'}</dd></div>
-          <div><dt>影格識別碼</dt><dd>{run?.frame_id || '—'}</dd></div>
+          <div><dt>Analysis status</dt><dd>{run ? displayLabel(run.status) : 'Awaiting analysis'}</dd></div>
+          <div><dt>Runtime mode</dt><dd>{realMode ? 'Local model' : 'Mock data'}</dd></div>
+          <div><dt>Frame ID</dt><dd>{run?.frame_id || '—'}</dd></div>
         </dl>
 
         <details className="disclosure technical-trace">
-          <summary>查看技術細節</summary>
+          <summary>View technical details</summary>
           <div className="details-drawer-section-content">
             <RunSummary run={run} userRequest={query} active={run?.status === 'running'} />
-            {frameUrl && <figure className="details-drawer-frame"><img src={frameUrl} alt="本次分析擷取的原始影像" /><figcaption>本次分析的擷取畫面</figcaption></figure>}
+            {frameUrl && <figure className="details-drawer-frame"><img src={frameUrl} alt="Original image captured for this analysis" /><figcaption>Captured frame for this analysis</figcaption></figure>}
             <dl className="details-drawer-facts">
-              <div><dt>分析識別碼</dt><dd>{run?.id || '—'}</dd></div>
-              <div><dt>{realMode ? '偵測區域' : '模擬區域'}</dt><dd>{run?.regions.length || 0}</dd></div>
-              <div><dt>使用目的</dt><dd>{isInformational(run) ? '資訊回答' : run?.outcome?.simulation_only === false ? '依執行結果紀錄' : '模擬外部行動'}</dd></div>
+              <div><dt>Run ID</dt><dd>{run?.id || '—'}</dd></div>
+              <div><dt>{realMode ? 'Detected regions' : 'Mock regions'}</dt><dd>{run?.regions.length || 0}</dd></div>
+              <div><dt>Purpose</dt><dd>{isInformational(run) ? 'Informational answer' : run?.outcome?.simulation_only === false ? 'As recorded in the outcome' : 'Simulated external action'}</dd></div>
             </dl>
-            {timings.length > 0 && <section className="details-drawer-latency"><h3>處理耗時</h3><dl>{timings.map(([key, value]) => <div key={key}><dt>{timingLabel(key)}</dt><dd>{value.toFixed(1)} 毫秒</dd></div>)}</dl></section>}
-            {run?.raw_model_text != null && <section className="details-drawer-model-output"><h3>本機模型原始輸出</h3><pre>{run.raw_model_text}</pre></section>}
-            <details className="details-drawer-nested"><summary>解析與對應診斷</summary><pre>{rawData(run?.runtime_metadata?.output)}</pre></details>
-            {(upstreamError != null || healthError != null) && <details className="details-drawer-nested"><summary>原始服務錯誤</summary>
-              {upstreamError != null && <section><h3>本次分析</h3><pre>{rawData(upstreamError)}</pre></section>}
-              {healthError != null && <section><h3>服務狀態</h3><pre>{rawData(healthError)}</pre></section>}
+            {timings.length > 0 && <section className="details-drawer-latency"><h3>Processing time</h3><dl>{timings.map(([key, value]) => <div key={key}><dt>{timingLabel(key)}</dt><dd>{value.toFixed(1)} ms</dd></div>)}</dl></section>}
+            {run?.raw_model_text != null && <section className="details-drawer-model-output"><h3>Raw local model output</h3><pre>{run.raw_model_text}</pre></section>}
+            <details className="details-drawer-nested"><summary>Parsing and mapping diagnostics</summary><pre>{rawData(run?.runtime_metadata?.output)}</pre></details>
+            {(upstreamError != null || healthError != null) && <details className="details-drawer-nested"><summary>Raw service errors</summary>
+              {upstreamError != null && <section><h3>Current analysis</h3><pre>{rawData(upstreamError)}</pre></section>}
+              {healthError != null && <section><h3>Service status</h3><pre>{rawData(healthError)}</pre></section>}
             </details>}
             <div className="details-drawer-proposal"><ProposalPanel realMode={realMode} run={run} /></div>
             {!!run?.semantic_regions?.length && <SemanticEvidence regions={run.semantic_regions} />}
-            {run ? <DecisionPanel run={run} guardEnabled={run.guard_enabled} /> : <p className="details-drawer-empty">尚無本次分析的授權資料。</p>}
+            {run ? <DecisionPanel run={run} guardEnabled={run.guard_enabled} /> : <p className="details-drawer-empty">No authorization data for this analysis yet.</p>}
           </div>
         </details>
         <DecisionTrace realMode={realMode} run={run} />
-        <details className="disclosure event-disclosure"><summary>查看事件時間軸 <span className="detail-count">{run?.events.length || 0} 個事件</span></summary><EventTimeline run={run} active={run?.status === 'running'} /></details>
+        <details className="disclosure event-disclosure"><summary>View event timeline <span className="detail-count">{run?.events.length || 0} events</span></summary><EventTimeline run={run} active={run?.status === 'running'} /></details>
         <RawAction run={run} />
-        <details className="disclosure"><summary>完整執行資料</summary><p className="details-drawer-raw-note">包含原始模型、原生授權規則、來源資料與執行事件。</p><pre>{rawData(run)}</pre></details>
-        {baseline && <details className="disclosure"><summary>未開啟 LensGuard 的執行資料</summary><pre>{rawData(baseline)}</pre></details>}
-        <details className="disclosure"><summary>服務狀態原始資料</summary><pre>{rawData(health)}</pre></details>
+        <details className="disclosure"><summary>Full run data</summary><p className="details-drawer-raw-note">Includes raw model output, native authorization rules, provenance data, and run events.</p><pre>{rawData(run)}</pre></details>
+        {baseline && <details className="disclosure"><summary>Run data without LensGuard</summary><pre>{rawData(baseline)}</pre></details>}
+        <details className="disclosure"><summary>Raw service status</summary><pre>{rawData(health)}</pre></details>
       </div>
     </dialog>
   );

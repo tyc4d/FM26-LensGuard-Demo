@@ -17,14 +17,14 @@ export function RuntimeInfo({ health, connected }: { health: Health | null; conn
   const memory = typeof used === 'number' && Number.isFinite(used) && used >= 0
     && typeof total === 'number' && Number.isFinite(total) && total > 0 && used <= total
     ? `${(used / 1024).toFixed(2)} / ${(total / 1024).toFixed(2)} GiB` : '—';
-  let model = !health ? '連線中' : !connected ? '連線中斷' : health.runtime === 'mock' ? 'Mock' : '模型離線';
+  let model = !health ? 'Connecting' : !connected ? 'Disconnected' : health.runtime === 'mock' ? 'Mock' : 'Model offline';
   if (live) {
-    model = modelNames[runtime.model_profile ?? ''] ?? runtime.model_id?.split('/').pop() ?? runtime.model_profile ?? '本機模型';
-    if (runtime.status === 'loading') model += '（載入中）';
-    else if (!runtime.model_loaded) model += '（未載入）';
+    model = modelNames[runtime.model_profile ?? ''] ?? runtime.model_id?.split('/').pop() ?? runtime.model_profile ?? 'Local model';
+    if (runtime.status === 'loading') model += ' (loading)';
+    else if (!runtime.model_loaded) model += ' (not loaded)';
   }
-  return <small className="runtime-info" aria-label="推論模型與 GPU 記憶體"
-    title={live ? `${runtime.model_id ?? model}${gpu?.name ? ` · ${gpu.name}` : ''}。GPU 整體已使用／總容量，每 4 秒更新。` : model}>
+  return <small className="runtime-info" aria-label="Inference model and GPU memory"
+    title={live ? `${runtime.model_id ?? model}${gpu?.name ? ` · ${gpu.name}` : ''}. Total GPU memory used / capacity, updated every 4 seconds.` : model}>
     <span className="runtime-model">{model}</span>
     <span className="runtime-memory">GPU VRAM {memory}</span>
   </small>;

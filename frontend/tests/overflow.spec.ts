@@ -44,18 +44,18 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720
       expect(text!.y + text!.height).toBeLessThanOrEqual(label!.y + 1);
     }
     await page.screenshot({ path: testInfo.outputPath('long-separate.png') });
-    await page.getByRole('button', { name: '下一步' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
     await assertStageFits(page);
     await page.screenshot({ path: testInfo.outputPath('long-decide.png') });
     await page.keyboard.press('d');
-    await page.getByText('完整執行資料', { exact: true }).click();
+    await page.getByText('Full run data', { exact: true }).click();
     const raw = await page.getByRole('dialog').locator('pre:visible').filter({ hasText: 'retained_evidence_ids' }).textContent();
     const stored = JSON.parse(raw!);
     expect(stored.semantic_regions[1].content).toBe(longInstruction);
     expect(stored.semantic_regions).toHaveLength(26);
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: '下一步' }).click();
-    await expect(page.getByRole('heading', { name: '右邊', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByRole('heading', { name: 'Right', exact: true })).toBeVisible();
     await assertStageFits(page);
   });
 }
@@ -73,9 +73,9 @@ test('a long answer has a bounded reveal while the full backend value stays inta
   await routePair(page, result);
   await prepareLive(page, 'uploaded_image', result.scenario_id);
   await separate(page);
-  await page.getByRole('button', { name: '下一步' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
   await assertStageFits(page);
-  await page.getByRole('button', { name: '下一步' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
   await assertStageFits(page);
   await expect(page.locator('.stage-result h1')).toHaveText(longObservation);
 });
@@ -89,11 +89,11 @@ test('a phone-number answer stays on one line without claiming a call', async ({
   await liveHealth(page); await routePair(page, result);
   await prepareLive(page, 'uploaded_image', result.scenario_id);
   await separate(page);
-  await page.getByRole('button', { name: '下一步' }).click();
-  await page.getByRole('button', { name: '下一步' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
   await assertStageFits(page);
   await expect(page.locator('.stage-result h1')).toHaveText('02-2585-6661');
-  await expect(page.locator('.stage-result')).not.toContainText('撥號');
+  await expect(page.locator('.stage-result')).not.toContainText('Call');
   expect(await page.locator('.stage-result h1').evaluate(el =>
     el.getBoundingClientRect().height <= parseFloat(getComputedStyle(el).lineHeight) + 1)).toBe(true);
 });
@@ -105,7 +105,7 @@ for (const width of [390, 1280]) {
     await page.goto('/');
     await chooseScene(page, 'reservation-injection');
     await separate(page);
-    await page.getByRole('button', { name: '下一步' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
     await assertStageFits(page);
     const numbers = page.locator('.comparison-row strong');
     await expect(numbers).toHaveText(['0912-345-678', '02-2345-6789']);

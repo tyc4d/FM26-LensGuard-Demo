@@ -59,7 +59,7 @@ def test_real_mapping_and_multipart(allow, guard, expected):
     assert final['runtime_metadata']['policy']['reason'] == 'A deterministic decision.'
     if guard:
         assert final['decision']['reason'] != final['runtime_metadata']['policy']['reason']
-        assert '授權' in final['decision']['reason']
+        assert 'authorization' in final['decision']['reason'].lower()
     assert final['validation_issues'] == []
     assert final['regions'] == []
     assert final['timings']['prototype_inference_ms'] == 12.3
@@ -76,7 +76,7 @@ def test_answer_question_never_becomes_a_phone_call(guard):
     payload = remote(allow=True)
     payload['output']['proposed_action'] = {'tool':'answer_question', 'arguments':{'text':'02-2585-6661'}}
     payload['policy'].update(engine='user-task-cited-evidence-v1', rule_id='USER_TASK_CITED_VALUE',
-        use='INFORMATIONAL_OUTPUT', affected_argument='answer_question.text', reason='已依照需求讀取電話。',
+        use='INFORMATIONAL_OUTPUT', affected_argument='answer_question.text', reason='已依照你的需求，使用通過引用檢查的場景資訊。',
         final_answer={'text':'02-2585-6661','value':'02-2585-6661','evidence_ids':['region_01']})
     snapshots, _ = run(payload, guard)
     final = snapshots[-1]
@@ -84,19 +84,22 @@ def test_answer_question_never_becomes_a_phone_call(guard):
     assert final['action']['tool'] == 'answer_question'
     assert final['action']['use'] == 'INFORMATIONAL_OUTPUT'
     assert final['final_answer']['value'] == '02-2585-6661'
-    if guard: assert final['decision']['reason'] == '已依照需求讀取電話。'
+    if guard:
+        assert final['decision']['reason'] == 'Used scene information that passed citation checks to fulfill your request.'
+    assert final['runtime_metadata']['policy']['reason'] == payload['policy']['reason']
 
 
 def test_missing_information_is_preserved_as_an_explanation_not_a_fake_call():
     payload = remote()
     payload['output']['proposed_action'] = {'tool':'none','arguments':{}}
     payload['policy'].update(engine='user-task-cited-evidence-v1', rule_id='TARGET_AMBIGUOUS',
-        reason='找到多個電話，請指定對象。', affected_argument='call_phone.number')
+        reason='找到多個可能的電話，請指定要撥打哪一個。', affected_argument='call_phone.number')
     snapshots, _ = run(payload)
     final = snapshots[-1]
     assert final['status'] == 'completed'
     assert final['outcome']['status'] == 'blocked'
-    assert final['decision']['reason'] == '找到多個電話，請指定對象。'
+    assert final['decision']['reason'] == 'Multiple possible phone numbers were found. Specify which one to call.'
+    assert final['runtime_metadata']['policy']['reason'] == payload['policy']['reason']
     assert not final['action']['arguments']
 
 
@@ -105,7 +108,7 @@ def test_parse_failure_preserves_raw():
     assert snapshots[-1]['status'] == 'failed'
     assert snapshots[-1]['action'] is None
     assert snapshots[-1]['raw_model_text'] == 'real raw output'
-    assert '無法解析模型輸出' in snapshots[-1]['error']
+    assert 'Unable to parse model output' in snapshots[-1]['error']
 
 
 @pytest.mark.parametrize('error', [httpx.ConnectError('offline'), httpx.ReadTimeout('slow')])
@@ -113,7 +116,7 @@ def test_no_mock_fallback(error):
     snapshots, _ = run(failure=error)
     assert snapshots[-1]['status'] == 'failed'
     assert snapshots[-1]['action'] is None
-    assert '不會改用模擬結果' in snapshots[-1]['error']
+    assert 'will not fall back to mock results' in snapshots[-1]['error']
     assert snapshots[-1]['runtime_metadata']['upstream_error'] == {
         'type': type(error).__name__, 'detail': str(error),
     }
@@ -216,7 +219,7 @@ def test_unusable_direction_preserves_parser_result_but_never_executes(guard, ca
     assert final['runtime_metadata']['output']['parsed'] is True
     assert final['runtime_metadata']['output']['diagnostics']['schema_valid'] is True
     assert final['runtime_metadata']['output']['validation_error'] == "unsupported direction: '未知'"
-    assert '模型提出的方向不明或無法使用' in final['error']
+    assert 'The proposed direction is unknown or unusable' in final['error']
     assert final['outcome'] is None and final['decision'] is None
     assert final['components']['policy'] == 'not_evaluated'
     assert [event['type'] for event in final['events']] == [
@@ -231,7 +234,7 @@ def test_image_required_and_unavailable_health():
         health = client.get('/api/health').json()
         assert health['runtime'] == 'prototype' and health['prototype']['status'] == 'unavailable'
         response = client.post('/api/run', json={'scenario_id': 'reservation-injection', 'guard_enabled': True})
-        assert response.status_code == 422 and '尚未提供影像' in response.json()['detail']
+        assert response.status_code == 422 and 'No image provided' in response.json()['detail']
 
 
 def test_upstream_error_is_chinese_while_original_health_and_run_diagnostics_remain():
@@ -243,7 +246,7 @@ def test_upstream_error_is_chinese_while_original_health_and_run_diagnostics_rem
     provider = PrototypeRuntimeProvider('http://prototype.test', transport=httpx.MockTransport(handler))
     with TestClient(create_app(Settings(runtime='prototype'), provider)) as client:
         health = client.get('/api/health').json()['prototype']
-        assert health['error'] == '顯示卡正由其他程式使用，請待資源空閒後再試。'
+        assert health['error'] == 'The GPU is in use by another application. Try again when resources are available.'
         assert health['raw_error'] == detail
         response = client.post('/api/run', files={'image': ('scene.jpg', b'image', 'image/jpeg')},
             data={'scenario_id': 'reservation-injection', 'guard_enabled': 'false', 'user_request': '測試請求'})

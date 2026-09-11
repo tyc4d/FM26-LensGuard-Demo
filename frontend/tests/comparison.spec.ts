@@ -11,11 +11,11 @@ test('an attacked image can return the same answer without protection; the UI re
   await routePair(page, guarded, baseline);
   await page.goto('/');
   await separate(page);
-  await page.getByRole('button', { name: '下一步' }).click();
-  await expect(page.locator('.semantic-label').filter({ hasText: '問題指令' })).toBeVisible();
-  await expect(page.locator('.comparison-row[data-guard="off"] strong')).toHaveText('右邊');
-  await expect(page.locator('.comparison-row[data-guard="on"] strong')).toHaveText('右邊');
-  await expect(page.locator('.decision-comparison')).toContainText('本次輸出相同');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.locator('.semantic-label').filter({ hasText: 'Unsafe instruction' })).toBeVisible();
+  await expect(page.locator('.comparison-row[data-guard="off"] strong')).toHaveText('Right');
+  await expect(page.locator('.comparison-row[data-guard="on"] strong')).toHaveText('Right');
+  await expect(page.locator('.decision-comparison')).toContainText('Same output this time');
 });
 
 for (const failure of ['transport', 'model', 'wrong-guard'] as const) {
@@ -31,13 +31,13 @@ for (const failure of ['transport', 'model', 'wrong-guard'] as const) {
     });
     await page.goto('/');
     await separate(page);
-    await page.getByRole('button', { name: '下一步' }).click();
-    await expect(page.locator('.comparison-row[data-guard="off"]')).toContainText('本次無法取得結果');
-    await expect(page.locator('.comparison-row[data-guard="off"]')).not.toContainText('左邊');
-    await expect(page.locator('.comparison-row[data-guard="on"] strong')).toHaveText('右邊');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.locator('.comparison-row[data-guard="off"]')).toContainText('Result unavailable');
+    await expect(page.locator('.comparison-row[data-guard="off"]')).not.toContainText('Left');
+    await expect(page.locator('.comparison-row[data-guard="on"] strong')).toHaveText('Right');
     await expect(page.locator('.experience-error:visible')).toHaveCount(0);
-    await page.getByRole('button', { name: '下一步' }).click();
-    await expect(page.getByRole('heading', { name: '右邊' })).toBeVisible();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByRole('heading', { name: 'Right' })).toBeVisible();
     await page.keyboard.press('r');
     await separate(page);
     await finish(page);
@@ -55,11 +55,11 @@ test('a failed first request releases the submission lock so ANALYZE can retry',
       : route.fulfill({ json: requestGuard(route.request()) ? guarded : baseline });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: '開始分析', exact: true }).click();
-  await expect(page.locator('.experience-error')).toContainText('目前無法完成分析，請再試一次。');
+  await page.getByRole('button', { name: 'Start analysis', exact: true }).click();
+  await expect(page.locator('.experience-error')).toContainText('Unable to complete the analysis. Please try again.');
   await separate(page);
   await finish(page);
-  await expect(page.getByRole('heading', { name: '右邊' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Right' })).toBeVisible();
   expect(posts).toBe(3);
 });
 
@@ -77,7 +77,7 @@ test('comparison rejects stale or mismatched runs and never treats partial outpu
     { ...baseline, outcome: null }, { ...baseline, action: { ...baseline.action!, validation_status: 'invalid' as const } }]) {
     expect(presentBaseline(invalid).value).toBeNull();
   }
-  expect(presentBaseline(baseline).text).toBe('左邊');
+  expect(presentBaseline(baseline).text).toBe('Left');
 });
 
 test('live clean scene skips the baseline while keeping actual detected instructions and replay', async ({ page, request }) => {
@@ -92,11 +92,11 @@ test('live clean scene skips the baseline while keeping actual detected instruct
   });
   await prepareLive(page, 'uploaded_image', 'clean-navigation');
   await separate(page);
-  await page.getByRole('button', { name: '下一步' }).click();
-  await expect(page.locator('.decision-effect[data-disposition=ignore]')).toContainText('忽略');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.locator('.decision-effect[data-disposition=ignore]')).toContainText('Ignore');
   await expect(page.locator('.decision-comparison')).toHaveCount(0);
-  await page.getByRole('button', { name: '下一步' }).click();
-  await expect(page.getByRole('heading', { name: '右邊' })).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Right' })).toBeVisible();
   await page.keyboard.press('r');
   await separate(page);
   await finish(page);

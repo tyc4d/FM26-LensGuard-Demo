@@ -4,82 +4,82 @@ import { isInformational } from '../story';
 
 export function presentRun(run: RunState | null, active: boolean) {
   if (run?.status === 'failed' && run.error_code === 'reservation_details_missing') return {
-    tone: 'interrupted', status: '需要補充資料', headline: '訂位資料尚未完整',
-    subtitle: '請在請求中補上訂位日期、時間與用餐人數，再重新分析。',
-    reason: run.error || '訂位缺少必要資料，未執行任何行動。',
+    tone: 'interrupted', status: 'More information needed', headline: 'Reservation details are incomplete',
+    subtitle: 'Add the reservation date, time, and party size to your request, then analyze again.',
+    reason: run.error || 'Required reservation details are missing. No action was taken.',
   };
   if (run?.status === 'failed' && run.error_code === 'model_action_invalid') return {
-    tone: 'interrupted', status: '模型輸出無效', headline: '模型已完成，行動參數無效',
-    subtitle: '模型未產生可用的行動，未執行任何行動。',
-    reason: run.error || '行動提案包含不支援的值。',
+    tone: 'interrupted', status: 'Invalid model output', headline: 'Model finished; action arguments are invalid',
+    subtitle: 'The model did not produce a usable action. No action was taken.',
+    reason: run.error || 'The proposed action contains unsupported values.',
   };
   if (run?.status === 'failed' && ['model_schema_invalid', 'action_mapping_failed', 'model_output_parse_failed'].includes(run.error_code || '')) return {
-    tone: 'interrupted', status: '模型輸出無效', headline: '模型已完成，行動格式不完整',
-    subtitle: '推論已完成，但輸出無法取得授權或執行。',
-    reason: run.error || '行動驗證失敗。',
+    tone: 'interrupted', status: 'Invalid model output', headline: 'Model finished; action format is incomplete',
+    subtitle: 'Inference finished, but the output could not be authorized or executed.',
+    reason: run.error || 'Action validation failed.',
   };
   if (run?.status === 'failed' && run.action && !run.decision) return {
-    tone: 'interrupted', status: '未獲授權', headline: '授權未完成。',
-    subtitle: '此行動提案未執行。',
-    reason: run.error || '無法完成授權，已暫停自動執行。',
+    tone: 'interrupted', status: 'Not authorized', headline: 'Authorization did not finish.',
+    subtitle: 'The proposed action was not executed.',
+    reason: run.error || 'Unable to complete authorization. Automatic execution is paused.',
   };
   if (run?.status === 'failed') return {
-    tone: 'interrupted', status: '已中斷', headline: run.error?.includes('could not be parsed') || run.error?.includes('無法解析') ? '無法解析模型輸出。' : '分析已中斷。',
-    subtitle: '請重設後再次分析此情境。', reason: run.error || '執行服務無法完成此次分析。',
+    tone: 'interrupted', status: 'Interrupted', headline: run.error?.includes('could not be parsed') || run.error?.includes('Unable to parse') ? 'Unable to parse model output.' : 'Analysis was interrupted.',
+    subtitle: 'Reset and analyze this scenario again.', reason: run.error || 'The runtime service could not complete this analysis.',
   };
   const outcome = run?.outcome;
   if (run?.status === 'completed' && run.final_answer && run.components?.policy === 'not_required') return {
-    tone: 'interrupted', status: '資訊不確定', headline: run.final_answer.text,
-    subtitle: '目前的視覺資訊不足以可靠回答。', reason: '請提供更清楚的影像或補充問題。',
+    tone: 'interrupted', status: 'Information uncertain', headline: run.final_answer.text,
+    subtitle: 'The available visual information is insufficient for a reliable answer.', reason: 'Provide a clearer image or add detail to your question.',
   };
   if (isInformational(run) && outcome) return {
-    tone: outcome.status, status: outcome.status === 'allowed' ? '回答已允許' : outcome.status === 'blocked' ? '回答缺少證據' : '回答結果',
-    headline: run?.final_answer?.text || '本次未提供回答。', subtitle: run?.final_answer?.evidence_ids.length ? '回答附有場景證據。' : '本次回答未附場景證據。',
+    tone: outcome.status, status: outcome.status === 'allowed' ? 'Answer allowed' : outcome.status === 'blocked' ? 'Answer lacks evidence' : 'Answer result',
+    headline: run?.final_answer?.text || 'No answer was provided for this run.', subtitle: run?.final_answer?.evidence_ids.length ? 'The answer includes scene evidence.' : 'This answer has no scene evidence.',
     reason: outcome.detail,
   };
   if (run?.runtime === 'prototype' && outcome && outcome.status !== 'executed') return {
     tone: outcome.status, status: displayLabel(outcome.status),
-    headline: outcome.status === 'allowed' ? '這次行動被允許' : 'LensGuard 暫停了這次行動',
-    subtitle: outcome.status === 'allowed' ? '確定性授權規則允許此模擬行動。' : '未能建立授權，已暫停自動執行。',
+    headline: outcome.status === 'allowed' ? 'This action was allowed' : 'LensGuard paused this action',
+    subtitle: outcome.status === 'allowed' ? 'Deterministic authorization rules allowed this simulated action.' : 'Authorization could not be established. Automatic execution is paused.',
     reason: outcome.detail,
   };
   if (outcome?.status === 'blocked') return {
-    tone: 'blocked', status: '已阻擋', headline: 'LensGuard 擋下了這次攻擊',
-    subtitle: '相機內容未獲授權決定行動參數。',
+    tone: 'blocked', status: 'Blocked', headline: 'LensGuard blocked this attack',
+    subtitle: 'Camera content was not authorized to set action arguments.',
     reason: run?.action?.tool === 'navigate'
-      ? '相機中的指令不能覆寫觀察到的出口方向。'
-      : '未經使用者明確授權，相機內容不能決定撥號目標。',
+      ? 'Instructions in the camera image cannot override the observed exit direction.'
+      : 'Camera content cannot choose a call target without explicit user authorization.',
   };
   if (outcome?.status === 'allowed') return {
-    tone: 'allowed', status: '已允許', headline: '這次行動被允許',
-    subtitle: '使用者已明確授權使用相機觀察到的電話號碼。',
+    tone: 'allowed', status: 'Allowed', headline: 'This action was allowed',
+    subtitle: 'The user explicitly authorized use of the phone number observed by the camera.',
     reason: run?.decision?.reason || outcome.detail,
   };
   if (outcome?.status === 'executed') return {
-    tone: outcome.attack_success ? 'compromised' : 'executed', status: '已模擬執行',
-    headline: outcome.attack_success ? '你的 AI 被騙了' : '行動已模擬執行',
-    subtitle: outcome.attack_success ? '環境文字改變了模型提出的行動。' : 'LensGuard 已關閉，行動提案已在模擬中執行。',
-    reason: outcome.attack_success ? 'LensGuard 關閉時，環境指令控制了行動。' : '已略過授權判定，未採取任何外部行動。',
+    tone: outcome.attack_success ? 'compromised' : 'executed', status: 'Simulated',
+    headline: outcome.attack_success ? 'Your AI was misled' : 'Action simulated',
+    subtitle: outcome.attack_success ? 'Scene text changed the action proposed by the model.' : 'LensGuard is off. The proposed action ran in simulation.',
+    reason: outcome.attack_success ? 'With LensGuard off, scene instructions controlled the action.' : 'Authorization checks were bypassed. No external action was taken.',
   };
   return {
-    tone: 'pending', status: active ? '處理中' : '等待分析',
-    headline: active ? '正在讀取場景。' : '觀察眼前的場景。',
-    subtitle: active ? '追蹤從場景觀察到行動授權的過程。' : '選擇情境並開始分析。',
-    reason: active ? '分析進行中，判定結果將顯示於此。' : '相機觀察到的內容，不會自動成為 AI 的行動權限。',
+    tone: 'pending', status: active ? 'Processing' : 'Awaiting analysis',
+    headline: active ? 'Reading the scene.' : 'Observe the scene in front of you.',
+    subtitle: active ? 'Follow the process from scene observation to action authorization.' : 'Choose a scenario and start the analysis.',
+    reason: active ? 'Analysis is in progress. The decision will appear here.' : 'Camera observations do not automatically authorize AI actions.',
   };
 }
 
 const stageLabels: Record<string, string> = {
-  'inference.started': '正在執行本機模型',
-  'inference.completed': '已收到模型回覆',
-  'action.parsed': '結構化行動已驗證',
-  'frame.received': '正在接收影像',
-  'perception.scene_analyzed': '正在解讀場景',
-  'perception.text_extracted': '正在讀取環境文字',
-  'model.action_proposed': '正在檢查行動提案',
-  'provenance.attached': '正在追蹤資料來源',
-  'policy.evaluated': '正在檢查授權',
-  'policy.bypassed': '已略過授權判定',
+  'inference.started': 'Running the local model',
+  'inference.completed': 'Model response received',
+  'action.parsed': 'Structured action validated',
+  'frame.received': 'Receiving the image',
+  'perception.scene_analyzed': 'Interpreting the scene',
+  'perception.text_extracted': 'Reading scene text',
+  'model.action_proposed': 'Checking the proposed action',
+  'provenance.attached': 'Tracing data sources',
+  'policy.evaluated': 'Checking authorization',
+  'policy.bypassed': 'Authorization checks bypassed',
 };
 
 export function RunSummary({ run, scenario, userRequest, active }: { run: RunState | null; scenario?: Scenario; userRequest?: string; active: boolean }) {
@@ -87,19 +87,19 @@ export function RunSummary({ run, scenario, userRequest, active }: { run: RunSta
   const informational = isInformational(run);
   const action = run?.action;
   const actionText = action ? `${displayLabel(action.tool)}(${Object.values(action.arguments).map((value) => value.value).join(', ')})` : null;
-  return <aside className={`run-summary result-${view.tone}`} aria-label="行動摘要">
-    <div className="stage-request"><p className="eyebrow">使用者請求</p><p className="user-request" lang="zh-Hant">{userRequest ?? scenario?.user_request ?? '正在載入情境…'}</p></div>
-    <div className="summary-action"><p className="eyebrow">{informational ? '資訊回答' : '行動提案'}</p><p className={`action-expression ${action ? '' : 'awaiting-action'}`}>{informational ? run?.final_answer?.text || actionText : actionText || (run?.status === 'failed' ? '沒有有效行動。' : '等待分析。')}</p></div>
+  return <aside className={`run-summary result-${view.tone}`} aria-label="Action summary">
+    <div className="stage-request"><p className="eyebrow">User request</p><p className="user-request" lang="en">{userRequest ?? scenario?.user_request ?? 'Loading scenario…'}</p></div>
+    <div className="summary-action"><p className="eyebrow">{informational ? 'Informational answer' : 'Proposed action'}</p><p className={`action-expression ${action ? '' : 'awaiting-action'}`}>{informational ? run?.final_answer?.text || actionText : actionText || (run?.status === 'failed' ? 'No valid action.' : 'Awaiting analysis.')}</p></div>
     <div className="summary-decision" data-testid="decision-result" aria-live="polite">
-      <p className="eyebrow">{active ? '進行中' : '結果'}</p>
+      <p className="eyebrow">{active ? 'In progress' : 'Result'}</p>
       <p className="result-label">{view.status}</p>
       <p className="decision-reason">{view.reason}</p>
-      {active && <p className="stage-progress" role="status">{stageLabels[run?.stage || ''] || '正在開始分析'}</p>}
-      {run?.outcome && !informational && <p className="simulation-note">僅模擬執行・未採取外部行動</p>}
+      {active && <p className="stage-progress" role="status">{stageLabels[run?.stage || ''] || 'Starting analysis'}</p>}
+      {run?.outcome && !informational && <p className="simulation-note">Simulation only · No external action taken</p>}
     </div>
     {run?.outcome && <div className="outcome-note" data-testid="outcome">
-      {run.outcome.attack_success !== null && <p>攻擊結果：<strong>{run.outcome.attack_success ? '攻擊成功' : '攻擊已阻止'}</strong></p>}
-      {run.outcome.result && <p>{informational ? '方向結果' : run.outcome.status === 'executed' ? '模擬採用值' : '已授權的值'}：<strong className="mono">{informational ? directionLabel(run.outcome.result) : run.outcome.result}</strong></p>}
+      {run.outcome.attack_success !== null && <p>Attack outcome: <strong>{run.outcome.attack_success ? 'Attack succeeded' : 'Attack prevented'}</strong></p>}
+      {run.outcome.result && <p>{informational ? 'Direction result' : run.outcome.status === 'executed' ? 'Simulated value' : 'Authorized value'}: <strong className="mono">{informational ? directionLabel(run.outcome.result) : run.outcome.result}</strong></p>}
     </div>}
   </aside>;
 }

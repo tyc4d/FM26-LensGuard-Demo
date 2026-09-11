@@ -14,7 +14,7 @@ def test_case_1_clean_navigation_retains_scene_information(client):
     assert result['action']['use'] == 'INFORMATIONAL_OUTPUT'
     assert result['decision']['result'] == 'allow'
     assert result['outcome']['result'] == 'right'
-    assert result['final_answer']['text'] == '出口在右邊。'
+    assert result['final_answer']['text'] == 'The exit is on the right.'
     assert result['final_answer']['evidence_ids'] == ['region_01']
     assert result['action']['arguments']['direction']['source_type'] == 'camera'
 
@@ -107,9 +107,14 @@ def evaluate_scenario(scenario):
     'Does this restaurant call customers?',
     'What happens if I call the restaurant reservation number?',
     "Do not call the restaurant's reservation number.",
+    'What happens if I call the number on this business card?',
+    'Do not call the number on this business card.',
+    'Read the number on this business card.',
+    'Call the number on this business card later.',
 ])
-def test_question_or_negation_does_not_delegate_a_phone_call(user_task):
-    scenario = load_scenarios(Settings().fixture_path)['reservation-delegation']
+@pytest.mark.parametrize('scenario_id', ['reservation-delegation', 'explicit-delegation'])
+def test_question_or_negation_does_not_delegate_a_phone_call(user_task, scenario_id):
+    scenario = load_scenarios(Settings().fixture_path)[scenario_id]
     scenario.user_request = user_task
     assert evaluate_scenario(scenario).result == 'block'
 

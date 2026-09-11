@@ -34,48 +34,81 @@ def _runtime_error_message(detail, status_code=None):
     """Localize the public error while keeping upstream text in diagnostics."""
     text = str(detail)
     known_errors = {
-        'CUDA_OOM': '本機模型的顯示記憶體不足，請確認資源可用後再試。',
-        'GPU_BUSY': '顯示卡正由其他程式使用，請待資源空閒後再試。',
-        'GPU_MEMORY_INSUFFICIENT': '可用的顯示記憶體不足，暫時無法執行本機模型。',
-        'RUNTIME_MISMATCH': '本機模型的執行環境版本不符，請檢查模型服務設定。',
-        'REVISION_MISMATCH': '本機模型或處理器的版本不符，請檢查模型服務設定。',
+        'CUDA_OOM': 'The local model ran out of GPU memory. Check available resources and try again.',
+        'GPU_BUSY': 'The GPU is in use by another application. Try again when resources are available.',
+        'GPU_MEMORY_INSUFFICIENT': 'There is insufficient GPU memory to run the local model.',
+        'RUNTIME_MISMATCH': 'The local model runtime version does not match. Check the model service configuration.',
+        'REVISION_MISMATCH': 'The local model or processor revision does not match. Check the model service configuration.',
     }
     for code, message in known_errors.items():
         if code in text:
             return message
     if status_code == 409:
-        return '本機模型正在載入或分析中，請待目前的工作完成後再試。'
+        return 'The local model is loading or analyzing. Wait for the current task to finish and try again.'
     if status_code == 413:
-        return '圖片不得為空，且大小不得超過 10 MiB。'
+        return 'The image must be nonempty and no larger than 10 MiB.'
     if status_code == 422:
-        return '模型服務無法接受本次輸入，請檢查影像與使用者需求後重試。'
-    return '本機模型服務目前無法完成分析，請稍後重試；原始錯誤可在技術詳細資訊中查看。'
+        return 'The model service could not accept this input. Check the image and user request, then try again.'
+    return 'The local model service could not complete the analysis. Try again later; the original error is available in technical details.'
+
+
+def _english_task_reason(reason):
+    """Translate fixed Prototype copy, preserving unknown text and raw diagnostics."""
+    reasons = {
+        '無法確認你的需求，請重新描述。': 'Unable to confirm your request. Please rephrase it.',
+        '請明確說明要查詢的資訊，或要撥號的對象。': 'Specify the information you need or the person or business to call.',
+        '沒有可對應的撥號要求，請明確指定要撥打的對象。': 'No matching call request was found. Specify who you want to call.',
+        '本次撥號需求無法確認，請重新描述。': 'Unable to confirm this call request. Please rephrase it.',
+        '指定號碼無法對應至你的撥號要求。': 'The specified number does not match your call request.',
+        '指定的電話號碼不完整。': 'The specified phone number is incomplete.',
+        '使用你指定的號碼模擬撥號。': 'Simulating a call to the number you specified.',
+        '這次無法取得有效的文字引用，請重新分析。': 'No valid text citation was obtained. Run the analysis again.',
+        '圖片中的內容不能改變你的任務，已停止這項提議。': 'Image content cannot change your task. This proposal was stopped.',
+        '未找到完整的電話號碼，請換張清楚的圖片。': 'No complete phone number was found. Use a clearer image.',
+        '找到多個可能的對象或號碼，請在需求中指定要使用哪一個。': 'Multiple possible targets or numbers were found. Specify which one to use in your request.',
+        '未找到可辨識且符合需求的資訊，請換張圖片或補充需求。': 'No readable information matching your request was found. Use another image or add detail to your request.',
+        '無法確認資訊屬於你指定的對象，請補充需求。': 'Unable to confirm that the information belongs to your target. Add detail to your request.',
+        '文字來源編號重複，請重新分析。': 'Text source IDs are duplicated. Run the analysis again.',
+        '尚未選出可引用的完整資訊，請重新分析。': 'No complete information was selected for citation. Run the analysis again.',
+        '引用無法對應原始文字，已停止這項提議。': 'The citation does not match the original text. This proposal was stopped.',
+        '提議引用了干擾指令，無法用它完成這項任務。': 'The proposal cites an injected instruction, which cannot be used for this task.',
+        '電話號碼與原始文字不一致，已停止這項提議。': 'The phone number does not match the original text. This proposal was stopped.',
+        '未找到完整的電話號碼。': 'No complete phone number was found.',
+        '方向與引用的標示不一致，請確認圖片。': 'The direction does not match the cited sign. Check the image.',
+        '回答無法對應引用的原始文字。': 'The answer does not match the cited original text.',
+        '找到多個可能的電話，請指定要撥打哪一個。': 'Multiple possible phone numbers were found. Specify which one to call.',
+        '候選對象的引用無效，請重新分析。': 'The citation for a candidate target is invalid. Run the analysis again.',
+        '還有未釐清的電話候選，請指定要撥打的對象或號碼。': 'Some phone candidates remain unresolved. Specify the target or number to call.',
+        '方向資訊有衝突，請補充要前往的對象。': 'Direction information conflicts. Specify your destination.',
+        '已依照你的需求，使用通過引用檢查的場景資訊。': 'Used scene information that passed citation checks to fulfill your request.',
+    }
+    return reasons.get(reason, reason)
 
 
 def _policy_reason(policy):
     """Translate decision explanations without changing authorization results."""
     if policy.get('engine') == 'user-task-cited-evidence-v1':
-        return policy['reason']
+        return _english_task_reason(policy['reason'])
     if policy.get('use') == 'INFORMATIONAL_OUTPUT':
-        return ('已保留有場景依據的觀察；嵌入指令不具回答權限。' if policy.get('result') == 'allow'
-                else '缺少一致且有場景依據的觀察，無法形成可靠答案。')
+        return ('Grounded observations were retained; embedded instructions have no authority over the answer.' if policy.get('result') == 'allow'
+                else 'A reliable answer requires consistent observations supported by scene evidence.')
     if policy.get('rule_id') == 'USER_DELEGATED_OBSERVED_ENTITY':
-        return '使用者已委派本次撥號使用觀察到的餐廳／名片電話；號碼的語意角色與來源符合授權範圍。'
+        return 'The user delegated this call to the observed restaurant or business card phone. Its semantic role and source match the authorization scope.'
     if policy.get('rule_id') == 'DEMO_SCOPED_CARD_CALL_DELEGATION_V1' and policy.get('result') == 'allow':
-        return '使用者已明確授權本次模擬撥號使用名片上的電話；號碼的影像依據與真實性仍未經驗證。'
+        return 'The user explicitly authorized the business card phone for this simulated call. The image evidence and authenticity of the number remain unverified.'
     if policy.get('rule_id') == 'DEMO_UNSUPPORTED_POLICY_V1' and policy.get('result') == 'block':
-        return '目前尚未提供此類行動的即時授權規則，因此已阻擋執行。'
+        return 'Live authorization rules for this action type are unavailable, so execution was blocked.'
     if policy.get('result') == 'allow':
-        return '授權檢查已允許此行動。目前僅執行模擬，不會聯絡外部服務。'
+        return 'Authorization checks allowed this action. Execution is simulated; no external service is contacted.'
     native = policy.get('native')
     if not isinstance(native, dict):
         native = {}
     decision = native.get('decision')
     if decision == 'CONFIRM':
-        return '此行動需要使用者進一步確認；目前缺少可驗證的語意依據，已暫停自動執行。'
+        return 'This action requires further user confirmation. Automatic execution is paused because verifiable semantic evidence is missing.'
     if decision == 'WARN':
-        return '此行動需要進一步確認風險；目前缺少可驗證的語意依據，已暫停自動執行。'
-    return '此行動未取得所需授權，已阻擋自動執行。'
+        return 'This action requires further risk confirmation. Automatic execution is paused because verifiable semantic evidence is missing.'
+    return 'This action lacks the required authorization. Automatic execution was blocked.'
 
 
 class RemoteOutput(BaseModel):
@@ -117,7 +150,7 @@ class PrototypeRuntimeProvider:
                               'error': _runtime_error_message(health['error'])}
                 return health
         except (httpx.HTTPError, ValueError):
-            return {'status': 'unavailable', 'model_loaded': False, 'error': '無法連線至本機模型服務，請啟動模型服務；系統不會改用模擬結果。'}
+            return {'status': 'unavailable', 'model_loaded': False, 'error': 'Unable to connect to the local model service. Start the service; the system will not fall back to mock results.'}
 
     async def infer(self, frame: FrameInput, scenario_id: str, guard_enabled=True):
         started = perf_counter()
@@ -139,20 +172,20 @@ class PrototypeRuntimeProvider:
                 raise ValueError('Unsupported contract version')
             return result, (perf_counter() - started) * 1000
         except httpx.TimeoutException as exc:
-            raise RuntimeFailure('模型推論逾時。本機模型可能仍在處理中；系統不會改用模擬結果。',
+            raise RuntimeFailure('Model inference timed out. The local model may still be processing; the system will not fall back to mock results.',
                                  diagnostics={'type': type(exc).__name__, 'detail': str(exc)}) from exc
         except httpx.HTTPError as exc:
-            raise RuntimeFailure('無法連線至本機模型服務，請啟動模型服務；系統不會改用模擬結果。',
+            raise RuntimeFailure('Unable to connect to the local model service. Start the service; the system will not fall back to mock results.',
                                  diagnostics={'type': type(exc).__name__, 'detail': str(exc)}) from exc
         except ValueError as exc:
-            raise RuntimeFailure('本機模型服務回傳的資料格式無效；系統不會改用模擬結果。',
+            raise RuntimeFailure('The local model service returned invalid data; the system will not fall back to mock results.',
                                  diagnostics={'type': type(exc).__name__, 'detail': str(exc)}) from exc
 
     def map_action(self, response, run_id, *, candidate=False):
         output = response.output
         raw = (output.candidate_action or output.native_action or output.proposed_action) if candidate else (output.proposed_action or output.native_action)
         if not raw:
-            raise RuntimeFailure('無法解析模型輸出。原始模型文字可在技術詳細資訊中查看。', 'model_output_parse_failed')
+            raise RuntimeFailure('Unable to parse model output. The original model text is available in technical details.', 'model_output_parse_failed')
         tools = {'CALL': 'call_phone', 'RESTAURANT_RESERVATION': 'restaurant_reservation',
                  'DIRECTION_ADVICE': 'provide_direction', 'OPEN_URL': 'open_url',
                  'SAFETY_ADVICE': 'safety_advice', 'NONE': 'none', 'ANSWER': 'answer_question'}
@@ -162,14 +195,14 @@ class PrototypeRuntimeProvider:
         if tool is None:
             tool = tools.get(raw.get('action'))
         if tool not in tools.values() or not isinstance(raw.get('arguments'), dict):
-            raise RuntimeFailure('無法轉換模型提議：行動類型不受支援，或參數格式無效。', 'action_mapping_failed')
+            raise RuntimeFailure('Unable to map the model proposal: unsupported action type or invalid argument format.', 'action_mapping_failed')
         arguments = {}
         for name, value in raw['arguments'].items():
             if not isinstance(name, str) or not name or not candidate and (type(value) not in (str, int, bool, float) or isinstance(value, float) and not math.isfinite(value)):
-                raise RuntimeFailure('無法轉換模型提議：參數值必須為文字、布林值或有限數值。', 'action_mapping_failed')
+                raise RuntimeFailure('Unable to map the model proposal: argument values must be text, booleans, or finite numbers.', 'action_mapping_failed')
             key = 'number' if name == 'target_number' else name
             if key in arguments:
-                raise RuntimeFailure('無法轉換模型提議：電話號碼欄位互相衝突。', 'action_mapping_failed')
+                raise RuntimeFailure('Unable to map the model proposal: conflicting phone number fields.', 'action_mapping_failed')
             display_value = (value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, allow_nan=False)) if candidate else str(value)
             source = (response.policy or {}).get('argument_provenance', {}).get(key, {}) if not candidate else {}
             role = source.get('semantic_role', 'unknown')
@@ -195,9 +228,9 @@ class PrototypeRuntimeProvider:
         state.runtime = 'prototype'
         state.components = {'vlm': 'local', 'provenance': 'transport_only', 'semantic_grounding': 'unavailable', 'policy': 'pending', 'execution': 'simulated'}
         state.timings = {'frame_capture_ms': frame.capture_ms, 'demo_upload_receive_ms': frame.upload_ms}
-        source_label = '相機' if frame.source == 'camera' else '上傳的'
-        await publish('frame.received', f'已收到一張{source_label}影像（{len(frame.data)} 位元組）。')
-        await publish('inference.started', '已將請求送至本機模型服務，開始產生行動提議。')
+        source_label = 'Camera' if frame.source == 'camera' else 'Uploaded'
+        await publish('frame.received', f'Received {source_label.lower()} image data ({len(frame.data)} bytes).')
+        await publish('inference.started', 'Request sent to the local model service to generate an action proposal.')
         response, request_ms = await self.infer(frame, state.scenario_id, state.guard_enabled)
         state.raw_model_text = response.output.raw_text
         state.runtime_metadata = response.model_dump()
@@ -208,10 +241,15 @@ class PrototypeRuntimeProvider:
         for field in ('semantic_regions', 'retained_evidence_ids', 'denied_instruction_ids', 'user_intent', 'delegation', 'argument_decisions'):
             if field in semantic:
                 setattr(state, field, semantic[field])
+        if semantic.get('engine') == 'user-task-cited-evidence-v1':
+            state.argument_decisions = [
+                {**candidate, 'reason': _english_task_reason(candidate['reason'])}
+                for candidate in state.argument_decisions
+            ]
         if state.semantic_regions:
             state.components['provenance'] = 'semantic_lineage'
             state.components['semantic_grounding'] = (response.provenance or {}).get('semantic_grounding', 'model_perception')
-        await publish('inference.completed', '已收到本機模型的實際推論結果。')
+        await publish('inference.completed', 'Received the actual inference result from the local model.')
         informational = getattr(response.output, 'proposed_output', None)
         if (isinstance(informational, dict) and informational.get('kind') == 'informational'
                 and informational.get('status') in {'uncertain', 'insufficient_evidence'}
@@ -242,7 +280,7 @@ class PrototypeRuntimeProvider:
             missing_only = all(issue.kind == 'missing' for issue in state.validation_issues)
             detail = ' '.join(issue.message for issue in state.validation_issues)
             raise RuntimeFailure(
-                f'{detail}請檢查使用者需求並補齊資料，再重新分析。',
+                f'{detail} Check your request, add the missing details, and analyze again.',
                 'reservation_details_missing' if missing_only else 'model_schema_invalid',
             )
         if response.output.validation_error is not None:
@@ -251,10 +289,10 @@ class PrototypeRuntimeProvider:
             # and stop before either authorization or Guard OFF simulation.
             state.action = self.map_action(response, state.id, candidate=True)
             invalid_message = {
-                'provide_direction': '模型提出的方向不明或無法使用。請確認影像中的方向指示後重新分析。',
-                'call_phone': '模型提出的電話號碼格式無法使用。請確認號碼後重新分析。',
-                'open_url': '模型提出的網址格式無法使用。請確認網址後重新分析。',
-            }.get(state.action.tool, '模型提議的行動參數無法使用。請檢查提議內容後重新分析。')
+                'provide_direction': 'The proposed direction is unknown or unusable. Check the direction signs in the image and analyze again.',
+                'call_phone': 'The proposed phone number has an invalid format. Check the number and analyze again.',
+                'open_url': 'The proposed URL has an invalid format. Check the URL and analyze again.',
+            }.get(state.action.tool, 'The proposed action arguments are unusable. Check the proposal and analyze again.')
             raise RuntimeFailure(
                 invalid_message,
                 'model_action_invalid',
@@ -265,10 +303,10 @@ class PrototypeRuntimeProvider:
             if response.output.candidate_action is not None:
                 state.action = self.map_action(response, state.id, candidate=True)
                 raise RuntimeFailure(
-                    '模型提議的行動缺少必要參數，或參數格式無效。請檢查提議內容並更新使用者需求後再試。',
+                    'The proposed action has missing or invalid arguments. Check the proposal, update your request, and try again.',
                     'model_schema_invalid',
                 )
-            raise RuntimeFailure('無法解析模型輸出。原始模型文字可在技術詳細資訊中查看。', 'model_output_parse_failed')
+            raise RuntimeFailure('Unable to parse model output. The original model text is available in technical details.', 'model_output_parse_failed')
         display_response = response
         if not state.guard_enabled and response.output.native_action:
             # The comparison baseline must show the original candidate, never
@@ -276,14 +314,14 @@ class PrototypeRuntimeProvider:
             display_response = response.model_copy(update={'policy': None,
                 'output': response.output.model_copy(update={'proposed_action': response.output.native_action})})
         state.action = self.map_action(display_response, state.id)
-        await publish('action.parsed', '模型服務已驗證結構化行動的格式。')
-        state.trace_nodes = [TraceNode(id='input', label='影像', type=f'{source_label}影像輸入', source='camera'),
-            TraceNode(id='model', label='本機視覺語言模型', type='實際推論', source='model'),
-            TraceNode(id='value', label=', '.join(value.value for value in state.action.arguments.values()) or '無參數', type='模型產生，尚未驗證', source='model'),
-            TraceNode(id='argument', label=', '.join(f'{state.action.tool}.{key}' for key in state.action.arguments) or state.action.tool, type='行動參數', source='model')]
+        await publish('action.parsed', 'The model service validated the structured action format.')
+        state.trace_nodes = [TraceNode(id='input', label='Image', type=f'{source_label} image input', source='camera'),
+            TraceNode(id='model', label='Local vision-language model', type='Real inference', source='model'),
+            TraceNode(id='value', label=', '.join(value.value for value in state.action.arguments.values()) or 'No arguments', type='Model-derived; unverified', source='model'),
+            TraceNode(id='argument', label=', '.join(f'{state.action.tool}.{key}' for key in state.action.arguments) or state.action.tool, type='Action argument', source='model')]
         state.trace_edges = [TraceEdge(from_='input', to='model'), TraceEdge(from_='model', to='value'), TraceEdge(from_='value', to='argument')]
         if state.semantic_regions:
-            state.trace_nodes = [TraceNode(id='input', label='影像', type='camera', source='camera'),
+            state.trace_nodes = [TraceNode(id='input', label='Image', type='camera', source='camera'),
                 TraceNode(id='argument', label=', '.join(f'{state.action.tool}.{key}' for key in state.action.arguments),
                           type=state.action.use, source='model')]
             state.trace_edges = []
@@ -297,13 +335,13 @@ class PrototypeRuntimeProvider:
                     state.trace_edges.append(TraceEdge(from_=value.source_id, to=value.id))
                 state.trace_edges.append(TraceEdge(from_=value.id, to='argument'))
         if response.provenance and response.provenance.get('delegated'):
-            state.trace_nodes.append(TraceNode(id='user', label='使用者需求', type='限定範圍的授權', source='user'))
+            state.trace_nodes.append(TraceNode(id='user', label='User request', type='Scoped authorization', source='user'))
             state.trace_edges.append(TraceEdge(from_='user', to='argument'))
-        await publish('provenance.attached', '已分離觀察／實體的場景依據與不具權限的嵌入指令。' if state.semantic_regions else
-                      '已記錄影像傳至模型的來源追溯資訊；目前缺少區域層級的語意依據。')
+        await publish('provenance.attached', 'Scene evidence for observations and entities was separated from embedded instructions without authority.' if state.semantic_regions else
+                      'Image-to-model provenance was recorded; semantic evidence for individual regions is unavailable.')
         if state.guard_enabled:
             if response.policy is None:
-                raise RuntimeFailure('授權規則目前無法使用，已暫停自動執行。', 'policy_unavailable')
+                raise RuntimeFailure('Authorization rules are unavailable. Automatic execution is paused.', 'policy_unavailable')
             state.decision = PolicyDecision.model_validate({key: response.policy[key] for key in PolicyDecision.model_fields if key in response.policy})
             state.decision = state.decision.model_copy(update={'reason': _policy_reason(response.policy)})
             state.components['policy'] = 'live'
@@ -311,7 +349,7 @@ class PrototypeRuntimeProvider:
             reason = state.decision.reason
             await publish('policy.evaluated', reason)
         else:
-            status, reason = 'executed', '防護已關閉：僅模擬執行提議的行動，未獨立驗證攻擊是否成功。'
+            status, reason = 'executed', 'Guard off: the proposed action runs only in simulation. Attack success has not been independently verified.'
             state.components['policy'] = 'bypassed'
             await publish('policy.bypassed', reason)
         if state.guard_enabled and status == 'allowed':
@@ -324,14 +362,14 @@ class PrototypeRuntimeProvider:
             direction = state.action.arguments.get('direction')
             value = direction.value.casefold() if direction else ''
             value = {'向右': 'right', '向左': 'left'}.get(value, value)
-            state.final_answer = dict(text={'right': '出口在右邊。', 'left': '出口在左邊。'}.get(value, value),
+            state.final_answer = dict(text={'right': 'The exit is on the right.', 'left': 'The exit is on the left.'}.get(value, value),
                                       value=value, grounded_claim=None, evidence_ids=[])
         state.outcome = RunOutcome(status=status, attack_success=None,
                                    result=state.final_answer.get('value') if state.final_answer else None, detail=reason)
         state.action.status = status
-        status_label = {'allowed': '已允許', 'blocked': '已阻擋', 'executed': '已模擬執行'}[status]
+        status_label = {'allowed': 'Allowed', 'blocked': 'Blocked', 'executed': 'Simulated'}[status]
         state.trace_nodes.append(TraceNode(id='policy', label=status_label,
-            type='觀察依據／回答' if state.action.use == 'INFORMATIONAL_OUTPUT' else '授權／模擬', source='system'))
+            type='Observation evidence / answer' if state.action.use == 'INFORMATIONAL_OUTPUT' else 'Authorization / simulation', source='system'))
         state.trace_edges.append(TraceEdge(from_='argument', to='policy'))
         state.status = 'completed'
         state.timings['demo_runtime_ms'] = (perf_counter() - started) * 1000

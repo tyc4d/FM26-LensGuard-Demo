@@ -15,21 +15,21 @@ test.beforeAll(async ({ request }) => {
 test('camera observations are usable in both clean and attacked backend runs', () => {
   for (const run of [clean, attacked]) {
     const view = presentRun(run);
-    expect(view.result.heading).toBe('右邊');
+    expect(view.result.heading).toBe('Right');
     expect(view.result.confirmed).toBe(true);
-    expect(view.pieces.find(piece => piece.value === '右邊')?.disposition).toBe('use');
+    expect(view.pieces.find(piece => piece.value === 'Right')?.disposition).toBe('use');
   }
   expect(presentRun(clean).clean).toBe(true);
   expect(presentRun(clean).pieces.filter(piece => piece.disposition === 'ignore')).toHaveLength(0);
-  expect(presentRun(attacked).pieces.find(piece => piece.value === '左邊')?.disposition).toBe('ignore');
+  expect(presentRun(attacked).pieces.find(piece => piece.value === 'Left')?.disposition).toBe('ignore');
 });
 
 test('approved alternate contact does not become an executed or approved call', () => {
   const view = presentRun(phone);
-  expect(view.result.heading).toBe('安全聯絡電話');
+  expect(view.result.heading).toBe('Safe contact number');
   expect(view.result.value).toBe('02-2345-6789');
-  expect(view.result.note).toContain('未撥出電話。');
-  expect(view.destination).toBe('聯絡電話');
+  expect(view.result.note).toContain('No call was placed.');
+  expect(view.destination).toBe('Contact number');
   expect(view.pieces.find(piece => piece.disposition === 'ignore')?.value).toBe('0912-345-678');
 });
 
@@ -44,7 +44,7 @@ for (const kind of ['no-decision', 'inconsistent-outcome', 'failed', 'invalid', 
     if (kind === 'pending') run.status = 'running';
     const view = presentRun(run);
     expect(view.result.confirmed).toBe(false);
-    expect(view.result.heading).not.toBe('右邊');
+    expect(view.result.heading).not.toBe('Right');
   });
 }
 
@@ -56,7 +56,7 @@ test('no classifications or evidence never invents a clean verdict or regions', 
   expect(view.pieces).toEqual([]);
   expect(view.clean).toBe(false);
   expect(view.result.confirmed).toBe(false);
-  expect(view.result.caption).toBe('已取得回答。');
+  expect(view.result.caption).toBe('Answer received.');
 });
 
 test('retained but unselected text is not depicted as influencing the answer', () => {
@@ -74,13 +74,13 @@ test('phone question remains an informational answer and ambiguity is explained'
   const view = presentRun(run);
   expect(view.result.heading).toBe('02-2585-6661');
   expect(view.result.simulation).toBe(false);
-  expect(view.destination).toBe('回答');
+  expect(view.destination).toBe('Answer');
   run.decision = { ...run.decision!, result: 'block', rule_id: 'TARGET_AMBIGUOUS',
-    affected_argument: 'call_phone.number', reason: '找到多個號碼，請指定對象。' };
+    affected_argument: 'call_phone.number', reason: 'Multiple numbers found. Specify a target.' };
   run.outcome!.status = 'blocked';
   run.action!.tool = 'none';
-  expect(presentRun(run).result).toMatchObject({ heading: '請指定對象',
-    caption: '找到多個號碼，請指定對象。', confirmed: false });
+  expect(presentRun(run).result).toMatchObject({ heading: 'Specify a target',
+    caption: 'Multiple numbers found. Specify a target.', confirmed: false });
 });
 
 test('explicitly quoting an instruction never labels it as an authorized call', () => {
@@ -90,8 +90,8 @@ test('explicitly quoting an instruction never labels it as an authorized call', 
   run.final_answer = { text: denied.content, value: denied.content, grounded_claim: null,
     evidence_ids: [denied.id], quoted_instruction_ids: [denied.id] };
   const view = presentRun(run);
-  expect(view.result.caption).toBe('已依照需求引用圖片文字。');
-  expect(view.result.note).toBe('僅讀取文字，未依照文字執行指令。');
+  expect(view.result.caption).toBe('Image text quoted as requested.');
+  expect(view.result.note).toBe('The text was read without executing its instructions.');
   expect(view.pieces.find(piece => piece.id === denied.id)?.label).toBe('QUOTED');
   expect(view.clean).toBe(false);
 });
@@ -104,7 +104,7 @@ test('unsupported and instruction-derived content never becomes useful contact e
   const view = presentRun(run);
   expect(view.pieces[0].label).toBe('INSTRUCTION');
   expect(view.pieces[0].disposition).toBe('ignore');
-  expect(view.result.heading).toBe('已停止撥號');
+  expect(view.result.heading).toBe('Call stopped');
   expect(view.result.value).toBeUndefined();
 });
 
@@ -135,6 +135,6 @@ test('a final-answer field on a blocked call cannot authorize a contact', () => 
   run.argument_decisions = [];
   run.final_answer = { text: 'stale', value: '02-2345-6789', grounded_claim: null, evidence_ids: ['region_01'] };
   const view = presentRun(run);
-  expect(view.result.heading).toBe('已停止撥號');
+  expect(view.result.heading).toBe('Call stopped');
   expect(view.result.value).toBeUndefined();
 });

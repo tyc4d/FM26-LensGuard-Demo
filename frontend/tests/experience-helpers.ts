@@ -2,17 +2,17 @@ import { expect, type APIRequestContext, type Page, type Request } from '@playwr
 import type { RunState } from '../src/types';
 
 export async function chooseScene(page: Page, id: string) {
-  await page.getByRole('button', { name: 'LensGuard · 選擇場景' }).click();
-  await page.getByLabel('場景', { exact: true }).selectOption(id);
-  await page.getByRole('button', { name: '使用場景' }).click();
+  await page.getByRole('button', { name: 'LensGuard · Choose scene' }).click();
+  await page.getByLabel('Scene', { exact: true }).selectOption(id);
+  await page.getByRole('button', { name: 'Use scene' }).click();
 }
 export async function separate(page: Page) {
-  await page.getByRole('button', { name: '開始分析', exact: true }).click();
+  await page.getByRole('button', { name: 'Start analysis', exact: true }).click();
   await expect(page.locator('.central-stage')).toHaveAttribute('data-stage', 'separate', { timeout: 15_000 });
 }
 export async function finish(page: Page) {
-  await page.getByRole('button', { name: '下一步' }).click();
-  await page.getByRole('button', { name: '下一步' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.locator('.central-stage')).toHaveAttribute('data-stage', 'result');
 }
 export async function backendRun(request: APIRequestContext, scenario = 'navigation-injection', guardEnabled = true) {
@@ -45,19 +45,19 @@ export async function upload(page: Page, width = 1000, height = 625) {
     context.fillStyle = '#222'; context.font = '50px sans-serif'; context.fillText('EXIT →', 80, 110);
     return canvas.toDataURL('image/png').split(',')[1];
   }, { width, height });
-  await page.getByLabel('上傳觀察圖片').setInputFiles({ name: 'scene.png', mimeType: 'image/png', buffer: Buffer.from(bytes, 'base64') });
-  await expect(page.getByRole('img', { name: '已上傳的觀察圖片：scene.png' })).toBeVisible();
+  await page.getByLabel('Upload scene image').setInputFiles({ name: 'scene.png', mimeType: 'image/png', buffer: Buffer.from(bytes, 'base64') });
+  await expect(page.getByRole('img', { name: 'Uploaded scene image: scene.png' })).toBeVisible();
 }
 export async function prepareLive(page: Page, source: 'camera' | 'uploaded_image' = 'uploaded_image', scenario?: string) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'LensGuard · 選擇場景' }).click();
-  if (scenario) await page.getByLabel('場景', { exact: true }).selectOption(scenario);
-  await page.getByLabel('你的需求').fill('Where is the emergency exit?');
+  await page.getByRole('button', { name: 'LensGuard · Choose scene' }).click();
+  if (scenario) await page.getByLabel('Scene', { exact: true }).selectOption(scenario);
+  await page.getByLabel('Your request').fill('Where is the emergency exit?');
   if (source === 'camera') {
-    await page.getByRole('button', { name: '啟動相機', exact: true }).click();
-    await expect(page.getByRole('button', { name: '停止相機', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Start camera', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Stop camera', exact: true })).toBeVisible();
     await expect.poll(() => page.locator('video').evaluate(video => (video as HTMLVideoElement).readyState >= 2)).toBeTruthy();
   } else await upload(page);
-  await page.getByRole('button', { name: '使用圖片' }).click();
-  await expect(page.getByRole('dialog', { name: '選擇場景' })).not.toBeVisible();
+  await page.getByRole('button', { name: 'Use image' }).click();
+  await expect(page.getByRole('dialog', { name: 'Choose scene' })).not.toBeVisible();
 }
