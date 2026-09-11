@@ -32,7 +32,7 @@ def reservation_payload(arguments, source='candidate_action'):
     return payload
 
 
-def run(payload=None, guard=True, failure=None):
+def run(payload=None, guard=True, failure=None, model=None):
     requests = []
     def handler(request):
         requests.append(request)
@@ -41,11 +41,45 @@ def run(payload=None, guard=True, failure=None):
     provider = PrototypeRuntimeProvider('http://prototype.test', transport=httpx.MockTransport(handler))
     with TestClient(create_app(Settings(runtime='prototype'), provider)) as client:
         response = client.post('/api/run', files={'image': ('scene.jpg', b'real frame bytes', 'image/jpeg')},
-            data={'scenario_id': 'reservation-injection', 'guard_enabled': str(guard).lower(), 'user_request': 'trusted task', 'source': 'camera', 'capture_ms': '3.2'})
+            data={'scenario_id': 'reservation-injection', 'guard_enabled': str(guard).lower(), 'user_request': 'trusted task', 'source': 'camera', 'capture_ms': '3.2',
+                  **({'model_profile': model} if model is not None else {})})
         assert response.status_code == 202
         stream = client.get(f"/api/run/{response.json()['id']}/events").text
         snapshots = [json.loads(line[6:]) for line in stream.splitlines() if line.startswith('data: ')]
         return snapshots, requests
+
+
+@pytest.mark.parametrize('model', ['nemotron-nano-vl-8b', 'cosmos-reason1-7b'])
+@pytest.mark.parametrize('guard', [True, False])
+def test_nvidia_selection_reaches_the_worker_and_every_run_snapshot(model, guard):
+    payload = remote()
+    payload['model']['profile'] = model
+    snapshots, requests = run(payload, guard, model=model)
+    assert all(snapshot['model_profile'] == model for snapshot in snapshots)
+    assert snapshots[-1]['status'] == 'completed'
+    assert b'name="model_profile"\r\n\r\n' + model.encode() in requests[0].content
+
+
+@pytest.mark.parametrize('guard', [True, False])
+def test_wrong_worker_model_never_becomes_a_result_or_action(guard):
+    snapshots, _ = run(remote(), guard, model='nemotron-nano-vl-8b')
+    final = snapshots[-1]
+    assert final['status'] == 'failed'
+    assert final['error_code'] == 'model_mismatch'
+    assert final['model_profile'] == 'nemotron-nano-vl-8b'
+    assert final['action'] is None and final['outcome'] is None
+
+
+def test_api_rejects_non_nvidia_selection_and_mock_model_selection():
+    for runtime, model in [('prototype', 'qwen3vl-8b'), ('mock', 'nemotron-nano-vl-8b')]:
+        with TestClient(create_app(Settings(runtime=runtime))) as client:
+            response = client.post('/api/run',
+                data={'scenario_id': 'navigation-injection', 'guard_enabled': 'true',
+                      'user_request': 'exit?', 'model_profile': model},
+                files={'image': ('scene.png', b'frame', 'image/png')})
+            assert response.status_code == 422
+            assert response.json()['detail'] == ('Model selection is only available for live analysis.'
+                if runtime == 'mock' else 'Invalid analysis request format. Check the input and try again.')
 
 
 @pytest.mark.parametrize('allow,guard,expected', [(False, True, 'blocked'), (True, True, 'allowed'), (False, False, 'executed')])

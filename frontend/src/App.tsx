@@ -75,10 +75,11 @@ export default function App() {
     if (stage === 'result') { replay(); return; }
     if (stage !== 'input') { setStage(nextStage(stage)); return; }
     if (comparison.phase === 'complete' && protectedRun?.status === 'completed') { setStage('separate'); return; }
-    if (!demo.connected || !demo.scenario || !imageUrl || !demo.userRequest.trim()) return;
+    if (!canAnalyze || !demo.scenario) return;
     setCaptureError(null);
     waiting.current = true;
-    comparison.begin({ scenarioId: demo.scenarioId, query: demo.userRequest, compare: demo.scenario.attack, ...(real && frame ? { frame } : {}) });
+    comparison.begin({ scenarioId: demo.scenarioId, query: demo.userRequest, compare: demo.scenario.attack,
+      modelProfile: demo.modelProfile, ...(real && frame ? { frame } : {}) });
   }
   function closeSetup() {
     captureVersion.current += 1;
@@ -116,14 +117,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const canAnalyze = !!(demo.connected && demo.scenario && imageUrl && demo.userRequest.trim());
+  const canAnalyze = !!(demo.connected && demo.scenario && imageUrl && demo.userRequest.trim()
+    && (!demo.models.length || demo.models.some(model => model.id === demo.modelProfile && model.available)));
   const error = captureError || (protectedRun?.status === 'failed' ? 'Analysis did not finish. Select Replay and try again.'
     : comparison.phase === 'failed' ? 'Unable to complete the analysis. Please try again.'
     : comparison.busy && demo.error ? 'Connection interrupted. Retrieving analysis results…' : null);
   return <div className="experience-page" lang="en">
     <header className="experience-header">
       <button className="experience-wordmark" aria-label="LensGuard · Choose scene" title="Choose scene (S)" onClick={() => setSetup(true)} disabled={busy}>LensGuard</button>
-      <RuntimeInfo health={demo.health} connected={demo.connected} />
+      <RuntimeInfo health={demo.health} connected={demo.connected} models={demo.models} selectedModel={demo.modelProfile}
+        disabled={busy} onModelChange={id => { if (!busy) { invalidate(); demo.selectModel(id); } }} />
       {debugEnabled && <button className="developer-details" onClick={() => setDetails(true)}>Details</button>}
     </header>
     <main className="experience-main">

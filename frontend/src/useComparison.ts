@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import type { CapturedFrame, RunState } from './types';
+import type { CapturedFrame, RunState, ModelProfile } from './types';
 import type { RunOptions } from './useDemoRuntime';
 
-export interface ComparisonInput { scenarioId: string; query: string; compare: boolean; frame?: CapturedFrame }
+export interface ComparisonInput { scenarioId: string; query: string; compare: boolean; frame?: CapturedFrame; modelProfile?: ModelProfile }
 export interface ComparisonState {
   phase: 'idle' | 'with' | 'without' | 'complete' | 'failed';
   input: ComparisonInput | null;
@@ -19,6 +19,7 @@ type Action = { type: 'reset' } | { type: 'begin'; input: ComparisonInput; ignor
 function snapshot(input: ComparisonInput): ComparisonInput {
   // Both requests share immutable image bytes, with copied capture metadata.
   return { scenarioId: input.scenarioId, query: input.query, compare: input.compare,
+    ...(input.modelProfile ? { modelProfile: input.modelProfile } : {}),
     ...(input.frame ? { frame: { ...input.frame } } : {}) };
 }
 export function comparisonReducer(state: ComparisonState, action: Action): ComparisonState {
@@ -34,7 +35,8 @@ export function comparisonReducer(state: ComparisonState, action: Action): Compa
     case 'received': {
       const { run } = action;
       if (!['with', 'without'].includes(state.phase) || run.status === 'running' || run.id === state.ignoreId) return state;
-      if (run.scenario_id !== state.input?.scenarioId || run.guard_enabled !== (state.phase === 'with')) {
+      if (run.scenario_id !== state.input?.scenarioId || run.guard_enabled !== (state.phase === 'with')
+        || (state.input?.modelProfile && run.model_profile !== state.input.modelProfile)) {
         return comparisonReducer(state, { type: 'failed' });
       }
       return state.phase === 'with'
@@ -54,7 +56,8 @@ export function useComparison(run: RunState | null, active: boolean, startRun: S
     const token = session.current;
     const failed = () => { if (session.current === token) dispatch({ type: 'failed' }); };
     // Synchronous start clears the previous runtime state before the next effect.
-    void startRun(undefined, { scenarioId: input.scenarioId, userRequest: input.query, frame: input.frame, guardEnabled })
+    void startRun(undefined, { scenarioId: input.scenarioId, userRequest: input.query, frame: input.frame,
+      modelProfile: input.modelProfile, guardEnabled })
       .then(started => { if (!started) failed(); }, failed);
   }, [startRun]);
   useEffect(() => { locked.current = ['with', 'without'].includes(state.phase); }, [state.phase]);

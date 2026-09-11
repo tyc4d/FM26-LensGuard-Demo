@@ -7,7 +7,7 @@ services:
     environment:
       LENSGUARD_RUNTIME: prototype
       PROTOTYPE_RUNTIME_URL: http://127.0.0.1:8010
-      INFERENCE_TIMEOUT_SECONDS: ${INFERENCE_TIMEOUT_SECONDS:-180}
+      INFERENCE_TIMEOUT_SECONDS: ${INFERENCE_TIMEOUT_SECONDS:-300}
   frontend:
     extra_hosts:
       - "backend:host-gateway"

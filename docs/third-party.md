@@ -9,13 +9,14 @@
 
 ## 使用過的模型與雲端 API
 
-目前真實 Demo 使用本機 Qwen3-VL 8B。Gemma 曾用於早期 Demo 整合；
-三個 local 模型與兩個 cloud 模型均有 Prototype 實驗紀錄。
+目前真實網頁 Demo 只提供 NVIDIA Nemotron Nano VL 8B（預設）與 Cosmos Reason1 7B，
+模型來源與環境見 [NVIDIA 操作說明](nvidia-demo.md)。Qwen 與 Gemma 曾用於先前 Demo 整合；
+下表的三個 local 模型與兩個 cloud 模型保留 Prototype 實驗紀錄。
 下表保留實驗的確切模型 ID，雲端名稱以已保存的執行紀錄為準。
 
 | 類型 | 模型與確切 ID | 官方來源與授權／服務條款 | 專案用途 |
 | --- | --- | --- | --- |
-| Local | Qwen3-VL 8B Instruct：`Qwen/Qwen3-VL-8B-Instruct` | [模型頁，Apache-2.0](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | 目前 Demo 的場景轉錄、任務解析與引用選取；Phase 2.5／3.5 本機基準及實體 pilot |
+| Local | Qwen3-VL 8B Instruct：`Qwen/Qwen3-VL-8B-Instruct` | [模型頁，Apache-2.0](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | 先前 Demo 的場景轉錄、任務解析與引用選取；Phase 2.5／3.5 本機基準及實體 pilot |
 | Local | Gemma 3 4B IT：`google/gemma-3-4b-it` | [模型頁](https://huggingface.co/google/gemma-3-4b-it)、[Gemma Terms of Use](https://ai.google.dev/gemma/terms) | 早期真實 Demo 整合；Phase 2.5／3.5 小模型基準及實體 pilot |
 | Local | MiniCPM-V 4.5：`openbmb/MiniCPM-V-4_5` | [模型頁與 Apache-2.0 說明](https://huggingface.co/openbmb/MiniCPM-V-4_5#license) | Phase 2.5／3.5 本機多模態基準及實體 pilot |
 | Cloud | OpenAI：`gpt-5.6-sol` | [Responses API](https://platform.openai.com/docs/api-reference/responses)、[OpenAI Services Agreement](https://openai.com/policies/services-agreement/) | Phase 3.6 雲端基準與實體 pilot；圖片、文字輸入及結構化行動／證據輸出 |
@@ -24,7 +25,7 @@
 Local 權重由 Hugging Face 另外下載，未納入 Demo repo。Gemma 下載需先接受
 Google 的模型使用條款。Cloud 模型透過 API 使用，適用各供應商服務條款；
 下方 SDK 的 Apache-2.0 授權適用於 SDK 程式碼。API 金鑰保留在本機環境，
-目前的 Qwen Demo 與 Mock 模式都不需要 cloud API 金鑰。
+目前的 NVIDIA Demo 與 Mock 模式都不需要 cloud API 金鑰。
 
 使用紀錄與版本依據：
 
@@ -32,7 +33,7 @@ Google 的模型使用條款。Cloud 模型透過 API 使用，適用各供應�
 - [Phase 3.5 三個本機模型報告](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/855630ed409ff4e71c2c30d21f1ba0d241c9c450/results_phase3_5/grounded-provenance-v1/report_local_models.md)。
 - [Phase 3.6 雲端模型與 SDK 設定](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/855630ed409ff4e71c2c30d21f1ba0d241c9c450/docs/phase3_6_cloud_provider_baseline.md#models-and-fixed-api-configuration)：OpenAI、Gemini 各完成 162 筆正式 trial。
 - [實體 pilot 執行 manifest](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/855630ed409ff4e71c2c30d21f1ba0d241c9c450/results_physical_pilot/direct_v1)：用於核對實際呼叫的模型，完成與失敗數依各 provider manifest 為準。
-- [Demo 測試紀錄](testing.md)保留早期 Gemma 與目前 Qwen 的真實整合驗證。
+- [Demo 測試紀錄](testing.md)保留目前 NVIDIA 與先前 Gemma／Qwen 的真實整合驗證。
 
 ## 套件與開發服務
 

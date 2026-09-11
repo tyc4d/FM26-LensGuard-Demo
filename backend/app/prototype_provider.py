@@ -20,6 +20,7 @@ class FrameInput:
     source: str = 'camera'
     capture_ms: float = 0
     upload_ms: float = 0
+    model_profile: str | None = None
 
 
 class RuntimeFailure(Exception):
@@ -159,7 +160,8 @@ class PrototypeRuntimeProvider:
                 response = await client.post(f'{self.url}/v1/analyze',
                     files={'image': ('frame.jpg' if frame.content_type == 'image/jpeg' else 'frame.png', frame.data, frame.content_type)},
                     data={'user_request': frame.user_request, 'scenario_id': scenario_id, 'mode': 'action_only',
-                          'guard_enabled': str(guard_enabled).lower()})
+                          'guard_enabled': str(guard_enabled).lower(),
+                          **({'model_profile': frame.model_profile} if frame.model_profile else {})})
             if response.is_error:
                 try:
                     detail = response.json().get('detail', response.text)
@@ -170,6 +172,9 @@ class PrototypeRuntimeProvider:
             result = RemoteResponse.model_validate(response.json())
             if result.contract_version != 'lensguard-demo-v1':
                 raise ValueError('Unsupported contract version')
+            if frame.model_profile and result.model.get('profile') != frame.model_profile:
+                raise RuntimeFailure('The response came from a different model. No action was taken.', 'model_mismatch',
+                                     diagnostics={'requested_model': frame.model_profile, 'returned_model': result.model})
             return result, (perf_counter() - started) * 1000
         except httpx.TimeoutException as exc:
             raise RuntimeFailure('Model inference timed out. The local model may still be processing; the system will not fall back to mock results.',
@@ -234,6 +239,7 @@ class PrototypeRuntimeProvider:
         response, request_ms = await self.infer(frame, state.scenario_id, state.guard_enabled)
         state.raw_model_text = response.output.raw_text
         state.runtime_metadata = response.model_dump()
+        state.model_profile = response.model.get('profile')
         state.timings.update({f'prototype_{key}': value for key, value in response.timing.items()})
         state.timings['prototype_request_ms'] = request_ms
         state.components['vlm'] = 'live'

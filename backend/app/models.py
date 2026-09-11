@@ -145,6 +145,7 @@ class ValidationIssue(Schema):
 
 class RunState(Schema):
     runtime: Literal["mock", "prototype"] = "mock"
+    model_profile: str | None = None
     raw_model_text: str | None = None
     error_code: str | None = None
     validation_issues: list[ValidationIssue] = Field(default_factory=list)
@@ -178,6 +179,7 @@ class RunState(Schema):
 class RunRequest(Schema):
     scenario_id: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9-]+$")
     guard_enabled: StrictBool
+    model_profile: Literal['nemotron-nano-vl-8b', 'cosmos-reason1-7b'] | None = None
 
 
 class Health(Schema):

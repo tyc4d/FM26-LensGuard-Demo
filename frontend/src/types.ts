@@ -2,6 +2,8 @@ export type SourceType = 'user' | 'camera' | 'model' | 'system';
 export type Authority = 'task' | 'observation' | 'evidence' | 'delegated' | 'none';
 export type SemanticRole = 'observation' | 'entity' | 'instruction' | 'instruction_derived' | 'unknown';
 export type ValueUse = 'INFORMATIONAL_OUTPUT' | 'SIDE_EFFECT_ARGUMENT';
+export type ModelProfile = 'nemotron-nano-vl-8b' | 'cosmos-reason1-7b';
+export interface ModelOption { id: ModelProfile; name: string; available: boolean }
 export interface GroundedClaim { predicate: string; value: string }
 export interface Grounding { status: string; method?: string; [key: string]: unknown }
 export interface UserDelegation {
@@ -111,6 +113,7 @@ export interface RunState {
   final_answer?: FinalAnswer | null;
   argument_decisions?: Array<PolicyDecision & { value: string; source_id: string; semantic_role: SemanticRole }>;
   runtime?: 'mock' | 'prototype';
+  model_profile?: string | null;
   error_code?: string | null;
   validation_issues?: Array<{ argument: string; kind: 'missing' | 'invalid'; message: string }>;
   raw_model_text?: string | null;
@@ -140,6 +143,8 @@ export interface Health {
   model: string;
   prototype?: {
     model_profile?: string;
+    default_model?: ModelProfile;
+    models?: ModelOption[];
     model_id?: string;
     status: string;
     model_loaded: boolean;

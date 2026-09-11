@@ -75,7 +75,8 @@ def create_app(
                     guard = form.get('guard_enabled')
                     if guard not in ('true', 'false'):
                         raise HTTPException(422, 'The guard setting must be true or false.')
-                    body = RunRequest(scenario_id=form.get('scenario_id'), guard_enabled=guard == 'true')
+                    body = RunRequest(scenario_id=form.get('scenario_id'), guard_enabled=guard == 'true',
+                                      model_profile=form.get('model_profile'))
                     image = form.get('image')
                     user_request = form.get('user_request')
                     if not isinstance(image, UploadFile) or image.content_type not in ('image/jpeg', 'image/png'):
@@ -89,13 +90,16 @@ def create_app(
                     capture_ms = float(str(form.get('capture_ms', '0')))
                     if source not in ('camera', 'uploaded_image') or not 0 <= capture_ms <= 60000:
                         raise HTTPException(422, 'Invalid image source or capture time.')
-                    frame = FrameInput(data, image.content_type, user_request, source, capture_ms, (perf_counter() - started) * 1000)
+                    frame = FrameInput(data, image.content_type, user_request, source, capture_ms,
+                                       (perf_counter() - started) * 1000, body.model_profile)
             else:
                 body = RunRequest.model_validate(await request.json())
         except (ValidationError, ValueError, TypeError) as exc:
             raise HTTPException(422, 'Invalid analysis request format. Check the input and try again.') from exc
         if isinstance(provider, PrototypeRuntimeProvider) and frame is None:
             raise HTTPException(422, 'No image provided. Local model mode requires a camera frame or uploaded image.')
+        if body.model_profile is not None and not isinstance(provider, PrototypeRuntimeProvider):
+            raise HTTPException(422, 'Model selection is only available for live analysis.')
         scenario = scenarios.get(body.scenario_id)
         if scenario is None:
             raise HTTPException(status_code=404, detail="The requested demo scenario was not found.")

@@ -9,12 +9,12 @@ The world does not automatically get authority over the AI.
 
 This repository contains a working research demonstration of the boundary between **what a camera observes**, **what a model proposes**, and **what an authorization layer permits**. It illustrates physical prompt injection through structured action provenance: environmental content can provide useful information without automatically gaining authority over a sensitive action argument.
 
-**Current stage:** live local Qwen3-VL 8B integration + explicit mock mode.
+**Current stage:** selectable local NVIDIA Nemotron (default) / Cosmos integration + explicit mock mode. See [NVIDIA demo operation](nvidia-demo.md).
 **Grounding limit:** scene text is extracted by the local VLM and checked by deterministic semantic rules; it is not independently verified. Phase 3.6 evaluation results are not part of this demo.
 
-The presentation is a single page with four states: **觀察、分辨、判斷、保護**. Interface labels, controls, and known direction values use Traditional Chinese; the original scene text and user request remain unchanged. The technical drawer retains the original diagnostics and structured output.
+The presentation is a single page with four states: **Observe, Distinguish, Decide, Protect**. Interface labels, controls, and known direction values use English; the original scene text and user request remain unchanged. The technical drawer retains the original diagnostics and structured output.
 
-The camera, UI, FastAPI, and SSE pipeline are live. In `LENSGUARD_RUNTIME=prototype`, one frozen image is sent on 開始分析 to the independent Prototype service. Its current flow interprets the user task without image access, transcribes the scene, selects existing text references, and checks task/action/value consistency before assembling the result. It no longer requires restaurant/card-specific phone labels. See [the task and citation boundary](../docs/task-boundary.md) for the implementation, comparison behavior and limitations. In `mock` mode, fixtures supply results and images remain in the browser. All external actions remain simulated.
+The camera, UI, FastAPI, and SSE pipeline are live. In `LENSGUARD_RUNTIME=prototype`, one frozen image is sent on **Start analysis** to the independent Prototype service. Its current flow interprets the user task without image access, transcribes the scene, selects existing text references, and checks task/action/value consistency before assembling the result. It no longer requires restaurant/card-specific phone labels. See [the task and citation boundary](../docs/task-boundary.md) for the implementation, comparison behavior and limitations. In `mock` mode, fixtures supply results and images remain in the browser. All external actions remain simulated.
 
 ## What the demo includes
 
@@ -32,15 +32,15 @@ The camera, UI, FastAPI, and SSE pipeline are live. In `LENSGUARD_RUNTIME=protot
 ```text
 Browser Camera / Uploaded Image
               ↓ one snapshot, HTTPS multipart
-Demo React → Demo FastAPI → Prototype Runtime (loopback HTTP)
+Demo React → Demo FastAPI → NVIDIA gateway (loopback HTTP)
               ↑ SSE                ↓
-              └──────────── Qwen3-VL 8B → LensGuard → Simulated Action
+              └──────────── Prototype worker (Nemotron / Cosmos) → LensGuard → Simulated Action
 ```
 
 | Component | Prototype mode | Mock mode |
 | --- | --- | --- |
 | Camera / UI / REST / SSE | Live | Live |
-| VLM | Real resident local Qwen3-VL 8B | Scenario fixture |
+| VLM | Selected resident NVIDIA Nemotron / Cosmos | Scenario fixture |
 | Provenance | Model-derived semantic regions, claims, and argument lineage | Explicit fixture regions and claims |
 | Policy | Semantic evidence for answers; scoped user delegation for capabilities | Same evidence/delegation distinction on deterministic fixtures |
 | Action sink | Simulated | Simulated |
@@ -167,7 +167,7 @@ VITE_HTTPS=true npm run dev -- --host 0.0.0.0
 
 Open **https://localhost:5173** on the presentation computer, or **https://<LAN-IP>:5173** on another device. Allow inbound TCP 5173 in the presentation computer's firewall if necessary; both devices must be on a network permitting peer connections. Do not run HTTP and HTTPS servers on port 5173 simultaneously. Use `VITE_HTTPS=false npm run dev` to return to HTTP localhost development. You can also persist `VITE_HTTPS=true` in `frontend/.env`; no code changes are required.
 
-The browser sends REST and SSE traffic to the same HTTPS origin under `/api`. Vite forwards it to HTTP FastAPI internally, with streaming timeouts disabled. No browser request needs `http://localhost:8000` or the backend's LAN address, and no backend TLS/CORS change is required. Capture happens in the browser; real mode sends the frozen snapshot only when **開始分析** is clicked. Clean scene options run protected analysis once; interference options additionally send the same snapshot for the unprotected baseline.
+The browser sends REST and SSE traffic to the same HTTPS origin under `/api`. Vite forwards it to HTTP FastAPI internally, with streaming timeouts disabled. No browser request needs `http://localhost:8000` or the backend's LAN address, and no backend TLS/CORS change is required. Capture happens in the browser; real mode sends the frozen snapshot only when **Start analysis** is clicked. Clean scene options run protected analysis once; interference options additionally send the same snapshot for the unprotected baseline.
 
 **Certificate trust on another device:** mkcert installs its CA only into supported trust stores on the computer where `mkcert -install` runs. Another phone or laptop does **not** automatically trust that CA. Transfer only the public `rootCA.pem` from the directory printed by `mkcert -CAROOT`, then install/trust it using that device's OS/browser instructions. iOS also requires enabling full trust for the installed CA. Android and managed devices vary in their support for user-installed CAs. Restart the browser after trust changes if needed. Never transfer `rootCA-key.pem` or the server private key. See [mkcert's device trust instructions](https://github.com/FiloSottile/mkcert#mobile-devices).
 
@@ -177,7 +177,7 @@ If installing a development CA is impractical, use a trusted HTTPS tunnel or a r
 
 ## Docker Compose
 
-The base `docker-compose.yml` runs **mock mode**. For real Qwen inference, follow [Docker and real mode](#docker-and-real-mode) to start the host Prototype service and enable `docker-compose.live.yml`. Changing `backend/.env` does not configure Docker: that file is neither copied into the backend image nor passed to Compose. Persist the live override with `COMPOSE_FILE` in the repository-root `.env` as shown below.
+The base `docker-compose.yml` runs **mock mode**. For real NVIDIA inference, follow [Docker and real mode](#docker-and-real-mode) to start the host Prototype service and enable `docker-compose.live.yml`. Changing `backend/.env` does not configure Docker: that file is neither copied into the backend image nor passed to Compose. Persist the live override with `COMPOSE_FILE` in the repository-root `.env` as shown below.
 
 Docker uses HTTPS by default. Generate and trust the local certificates before the first startup, following the [HTTPS setup](#https-for-camera-access), then run from the repository root:
 
@@ -212,15 +212,15 @@ Use the [HTTPS setup](#https-for-camera-access) for LAN access, or `http://local
 
 Open scene setup with the wordmark or **S**. In live mode, click **啟動相機** and approve the browser permission prompt. Available devices appear after permission is granted; front/back choices depend on the browser and hardware. **停止相機** releases active media tracks.
 
-Use **上傳圖片** to choose a JPEG, PNG, or WebP (up to 10 MB and 40 megapixels). Uploading stops the camera. **更換圖片** selects another file; **移除圖片** clears that preview. **使用圖片** captures a JPEG locally, releases the camera, closes setup, and invalidates the old analysis. The selected image is displayed without cropping and is sent only when **開始分析** is clicked. 重播 preserves the image.
+Use **上傳圖片** to choose a JPEG, PNG, or WebP (up to 10 MB and 40 megapixels). Uploading stops the camera. **更換圖片** selects another file; **移除圖片** clears that preview. **Use image** captures a JPEG locally, releases the camera, closes setup, and invalidates the old analysis. The selected image is displayed without cropping and is sent only when **Start analysis** is clicked. 重播 preserves the image.
 
 Mock mode uses labeled backend sample scenes and does not offer camera or upload inputs. Live file selection works without camera permission, including on HTTP LAN pages where live camera access is unavailable.
 
 ## Running the scenarios
 
-Click the **LensGuard** wordmark (or press **S**) to choose a scene. In live mode, enter the request and select an image or camera; **使用圖片** freezes the input locally and closes setup. Only **開始分析** uploads the image. In mock mode, **使用場景** selects an explicitly labeled sample made from the backend's fixture text; arbitrary camera images cannot be paired with unrelated mock results.
+Click the **LensGuard** wordmark (or press **S**) to choose a scene. In live mode, enter the request and select an image or camera; **Use image** freezes the input locally and closes setup. Only **Start analysis** uploads the image. In mock mode, **使用場景** selects an explicitly labeled sample made from the backend's fixture text; arbitrary camera images cannot be paired with unrelated mock results.
 
-The only presentation actions are **開始分析**, **下一步**, **下一步**, and **重播**. The stage stays on 觀察 during analysis. Clean scene options run only the protected analysis; interference options additionally run an unprotected baseline using the same image and request. The same image stays in the same position during 分辨; selected pieces move during 判斷; the same central surface becomes the result. 判斷 explicitly labels useful information and problematic instructions, and, for interference options, shows the actual results with and without LensGuard in two compact rows. Clean options omit the comparison and center the adopted information. Equal outcomes and unavailable baselines are reported as such. Long OCR stays bounded; complete text remains in details. No autoplay or pause control is needed.
+The only presentation actions are **Start analysis**, **下一步**, **下一步**, and **重播**. The stage stays on 觀察 during analysis. Clean scene options run only the protected analysis; interference options additionally run an unprotected baseline using the same image and request. The same image stays in the same position during 分辨; selected pieces move during 判斷; the same central surface becomes the result. 判斷 explicitly labels useful information and problematic instructions, and, for interference options, shows the actual results with and without LensGuard in two compact rows. Clean options omit the comparison and center the adopted information. Equal outcomes and unavailable baselines are reported as such. Long OCR stays bounded; complete text remains in details. No autoplay or pause control is needed.
 
 Use **Right Arrow** to advance, **Left Arrow** to go back, and **R** to replay the completed result without another request. Changing the scene, image, or request discards the old run. Failed runs can be retried with 重播 and 開始分析. Shortcuts do not interfere with text entry or open dialogs. Transitions respect reduced-motion preferences.
 
@@ -302,9 +302,9 @@ The Prototype repository remains the runtime source of truth. The Demo never imp
 
 ### Prerequisites and GPU safety
 
-Use the existing `/home/tyc4d/venvs/lensguard-vlm` environment on this server: PyTorch `2.10.0+cu128`, Transformers `5.16.1`, BF16 Qwen `Qwen/Qwen3-VL-8B-Instruct` at the Prototype's frozen revision. Do not reinstall CUDA, update the model stack, change revisions, clear caches, or use `pip install -e .` in the Prototype.
+Use the prepared environments on this server: `/home/tyc4d/venvs/lensguard-nemotron` for Nemotron (Transformers `4.53.3`) and `/home/tyc4d/venvs/lensguard-vlm` for Cosmos (Transformers `5.16.1`). Both use PyTorch `2.10.0+cu128` and cached BF16 weights at the Prototype's frozen revisions. See [NVIDIA setup](../README.md#nvidia-local-models). Do not reinstall CUDA, update the model stack, change revisions, clear caches, or use `pip install -e .` in the Prototype.
 
-Before startup inspect `nvidia-smi` and running experiment command lines. Phase 3.6 takes priority: never kill, pause, restart, or renice it. The service refuses a new load when another compute process is active or free VRAM is below 21,000 MiB. Resident requests require 4,096 MiB free and no other compute process. These are conservative reserves, not guaranteed peak estimates. Observed demo resident GPU use was approximately 17.1 GiB with Qwen. Do not keep another VLM family resident. Preflight is a point-in-time check; coordinate experiment scheduling.
+Before startup inspect `nvidia-smi` and running experiment command lines. Phase 3.6 takes priority: never kill, pause, restart, or renice it. The service refuses a new load when another compute process is active or free VRAM is below 21,000 MiB. Resident requests require 4,096 MiB free and no other compute process. These are conservative reserves, not guaranteed peak estimates. The gateway keeps only the selected model resident and stops only its own worker when switching. Preflight is a point-in-time check; coordinate experiment scheduling.
 
 The service's web-only dependencies are separate from model packages. On the known verified environment, install only the missing transport packages (no dependency/model upgrades):
 
@@ -320,12 +320,11 @@ The existing environment must already contain Pydantic 2, AnyIO, Click, h11 and 
 
 Use three terminals. Do not start duplicate runtimes; first inspect `curl http://127.0.0.1:8010/health` and existing processes. A healthy `unloaded` status is expected until the first image. Do not use multiple workers or reload for the model service.
 
-1. Prototype:
+1. NVIDIA model gateway:
 
 ```bash
-cd /home/tyc4d/FM26-LensGuard-Demo/prototype
-source /home/tyc4d/venvs/lensguard-vlm/bin/activate
-python -m prototype_demo_server --model qwen3vl-8b --host 127.0.0.1 --port 8010
+cd /home/tyc4d/FM26-LensGuard-Demo/backend
+.venv/bin/python -m model_gateway --port 8010
 ```
 
 2. Demo backend (stop your previous **Demo backend only** if port 8000 is occupied):
@@ -348,19 +347,15 @@ VITE_HTTPS=true VITE_API_BASE_URL=/api npm run dev -- --host 0.0.0.0
 
 Open `https://localhost:5173` or `https://<LAN-IP>:5173`. The visiting device must trust the mkcert CA and the certificate must cover that address. Camera access on a physical device has to be granted there. The browser only contacts the HTTPS frontend; Vite proxies REST/SSE to the Demo and the Demo contacts the loopback Prototype.
 
-Click the wordmark, choose a scenario, enter **你的需求**, and start the camera or upload a scene image. Click **使用圖片**, then **開始分析**. In real mode, the reservation request starts empty; navigation and business-card tasks retain their original defaults. For a complete reservation, provide the intended date/time and party size; if you only want to call the restaurant, say that explicitly. Analysis requires a nonblank request, and the displayed task is sent to the model.
+Click the wordmark, choose a scenario, enter **Your request**, and start the camera or upload a scene image. Click **Use image**, then **Start analysis**. In real mode, the reservation request starts empty; navigation and business-card tasks retain their original defaults. For a complete reservation, provide the intended date/time and party size; if you only want to call the restaurant, say that explicitly. Analysis requires a nonblank request, and the displayed task is sent to the model.
+
+Choose **NVIDIA Nemotron Nano VL 8B** (default) or **NVIDIA Cosmos Reason1 7B** in the header. Selection applies to the next analysis and is frozen for both Guard ON/OFF requests. Changing it clears previous results while retaining the image and request.
 
 Editing clears the prior run while keeping the selected image, and drafts are retained per scenario until the page reloads. Scene setup and editing are disabled during analysis. Mock mode uses its fixed tasks.
 
 The scenario never supplies the real model answer or environmental text. Raw model output, measured timings, and lineage are in expandable technical details. WebP uploads are converted to JPEG by the browser. Snapshot longest edge is bounded to 2560 pixels with JPEG quality 0.9; there is no continuous frame streaming.
 
-Optional one-time warmup, **only when experiments are not competing for the GPU**:
-
-```bash
-curl -X POST http://127.0.0.1:8010/warmup
-```
-
-It runs a synthetic blank image, caches completion, and writes no benchmark results. It has the same GPU preflight as inference.
+The first analysis loads the selected model. The gateway does not expose `/warmup`; use a synthetic image with the [NVIDIA smoke request](nvidia-demo.md#health-and-request-checks) to check loading and inference. Health polling alone does not load a model.
 
 To return to fixture mode, restart only the Demo backend with `LENSGUARD_RUNTIME=mock`. This is the default. There is **no automatic fallback** from prototype to mock.
 
@@ -374,22 +369,22 @@ The local VLM performs scene extraction; deterministic rules identify supported 
 
 ### Troubleshooting
 
-- `unavailable`: start the Prototype and verify `PROTOTYPE_RUNTIME_URL`; no fixture fallback occurs.
-- `unloaded` / `loading`: first request loads once; health remains responsive. Duplicate inference requests receive a busy response.
+- `unavailable`: start the NVIDIA gateway and verify `PROTOTYPE_RUNTIME_URL`; no fixture fallback occurs.
+- `unloaded` / `loading`: first request or model change loads the selected model; health remains responsive. Duplicate inference requests receive a busy response.
 - GPU busy or OOM: leave experiments untouched, wait for an agreed GPU window; do not switch models silently.
-- Timeout: Demo defaults to 180 seconds (`INFERENCE_TIMEOUT_SECONDS`); a timed-out GPU request may still finish on the Prototype. Check health before retrying. Reloading detaches the UI; it does not interrupt a model generation.
+- Timeout: Demo defaults to 300 seconds (`INFERENCE_TIMEOUT_SECONDS`). Gateway worker startup has a 45-second budget and inference has 240 seconds; a timed-out worker is stopped before another request starts. Check health before retrying. Reloading detaches the UI; it does not interrupt a model generation.
 - Parse failure: raw output remains visible, with no structured action or execution fabricated. The existing parser may accept JSON fences; no new repair/retry parser is introduced.
-- `需要補充資料`: the reservation proposal is missing required values, such as time or party size. Check **你的需求** in scene setup, supply the needed details, and run again. The Demo never fills missing values with defaults; raw `N/A` values remain visible, and field-specific issues identify what to correct. Full parser errors stay in the expandable diagnostics. These checks validate completeness and types; they do not establish that model-proposed values came from your request or image. Reservation execution remains blocked by the existing policy.
+- `More information needed`: the reservation proposal is missing required values, such as time or party size. Check **Your request** in scene setup, supply the needed details, and run again. The Demo never fills missing values with defaults; raw `N/A` values remain visible, and field-specific issues identify what to correct. Full parser errors stay in the expandable diagnostics. These checks validate completeness and types; they do not establish that model-proposed values came from your request or image. Reservation execution remains blocked by the existing policy.
 - Policy unavailable: automatic execution is withheld. Ground truth fixtures never authorize real results.
-- Low text resolution: fill the camera frame with readable scene text; preprocessing remains the Prototype's native Qwen processor.
+- Low text resolution: fill the camera frame with readable scene text; preprocessing remains the selected model's native Prototype processor.
 
 ### Docker and real mode
 
-The base Compose file runs mock mode. Real mode requires the host Prototype runtime and `docker-compose.live.yml`, which connects the container backend to the runtime on host loopback. This override is Linux-specific and requires Docker Compose 2.24.4+.
+The base Compose file runs mock mode. Real mode requires the host NVIDIA gateway and `docker-compose.live.yml`, which connects the container backend to the runtime on host loopback. This override is Linux-specific and requires Docker Compose 2.24.4+.
 
-First check `curl http://127.0.0.1:8010/health` and existing processes. Reuse an existing Prototype runtime; do not start a second copy. For a managed service on this server, [scripts/lensguard-prototype.service](../scripts/lensguard-prototype.service) uses the existing `%h/venvs/lensguard-vlm` Python environment and `%h/FM26-LensGuard-Demo/prototype` submodule checkout, where `%h` is your home directory. Initialize the pinned checkout with `git submodule update --init --recursive` from the Demo root before starting it. It does not install or change the model stack. Check the [GPU prerequisites](#prerequisites-and-gpu-safety) before use.
+First check `curl http://127.0.0.1:8010/health` and existing processes. Reuse the NVIDIA gateway if already running; a fixed-model legacy Prototype server must be stopped before replacing it with the gateway. For a managed service on this server, [scripts/lensguard-prototype.service](../scripts/lensguard-prototype.service) uses `%h/FM26-LensGuard-Demo/backend/.venv/bin/python` to start the NVIDIA gateway. It launches the pinned `%h/FM26-LensGuard-Demo/prototype` checkout in the selected model's existing environment, where `%h` is your home directory. See [environment paths](nvidia-demo.md#environments-and-gpu-ownership). Initialize the pinned checkout with `git submodule update --init --recursive` from the Demo root before starting it. It does not install or change the model stack. Check the [GPU prerequisites](#prerequisites-and-gpu-safety) before use.
 
-If no Prototype runtime is already running, install the user service once from the **Demo repository root**:
+If no gateway or Prototype runtime is already running, install the user service once from the **Demo repository root**:
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -399,7 +394,7 @@ systemctl --user enable --now lensguard-prototype.service
 systemctl --user status lensguard-prototype.service
 ```
 
-Skip link creation if the unit is already installed. Enabling a user service starts it with the user manager, normally at login; this setup does not enable lingering or promise startup at boot without login. Its lifetime follows the user manager. The service listens only on `127.0.0.1:8010` and loads Qwen lazily on the first image or warmup request. The existing GPU preflight still applies.
+Skip link creation if the unit is already installed. Enabling a user service starts it with the user manager, normally at login; this setup does not enable lingering or promise startup at boot without login. Its lifetime follows the user manager. The service listens only on `127.0.0.1:8010` and loads the selected NVIDIA model lazily on its first analysis. After updating an installed unit, reload systemd and restart the service when idle. The existing GPU preflight still applies.
 
 Generate certificates using the [HTTPS setup](#https-for-camera-access), then add or update these settings in the **repository-root `.env`**:
 
@@ -415,7 +410,7 @@ docker compose up --build -d
 curl http://localhost:8000/api/health
 ```
 
-Confirm `runtime` is `prototype`. The nested `prototype.status` should be `unloaded` before the first inference or `ready` after successful inference, with no upstream error; `prototype.model_loaded` indicates whether the model is resident. A Docker `healthy` label or HTTP 200 alone does not establish a connection to Qwen. `prototype.status: unavailable` means the upstream service cannot be reached; the Demo never falls back to mock mode automatically.
+Confirm `runtime` is `prototype`. The nested `prototype.status` should be `unloaded` before the first inference or `ready` after successful inference, with no upstream error; `prototype.model_loaded` indicates whether the model is resident. A Docker `healthy` label or HTTP 200 alone does not establish a connection to a ready NVIDIA worker. Verify `prototype.models` lists Nemotron and Cosmos and `prototype.default_model` is `nemotron-nano-vl-8b`. `prototype.status: unavailable` means the upstream service cannot be reached; the Demo never falls back to mock mode automatically.
 
 To select the override for a single command without persisting `COMPOSE_FILE`:
 

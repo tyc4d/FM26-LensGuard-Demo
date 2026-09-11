@@ -51,6 +51,7 @@ class DemoRuntime:
             del self.records[oldest_terminal]
         run_id = f"run_{uuid4().hex[:16]}"
         state = RunState(id=run_id, scenario_id=scenario.id, guard_enabled=guard_enabled, runtime="prototype" if isinstance(self.provider, PrototypeRuntimeProvider) else "mock")
+        state.model_profile = frame.model_profile if frame else None
         record = RunRecord(state=state)
         self.records[run_id] = record
         self.frame_counter += 1

@@ -15,7 +15,7 @@ LensGuard is designed for people using camera- or wearable-based vision assistan
 
 - **Camera and image input:** Choose a camera or upload an image, enter your own request, and send the frozen frame only after pressing “Start analysis.”
 - **Task and citation checks:** Parse the user request first, then transcribe the image and select existing citations. The program checks the original text, complete phone number, and task consistency.
-- **NVIDIA local VLM support:** Run Nemotron Nano VL or Cosmos Reason1 with open observations, optional attributes, and explicit uncertainty for informational questions. Qwen remains the default.
+- **NVIDIA local VLM support:** Choose NVIDIA Nemotron Nano VL (default) or Cosmos Reason1 in the web demo. Both support open observations, optional attributes, and explicit uncertainty for informational questions.
 - **Four-stage presentation:** Show “Observe, Distinguish, Decide, Protect” in sequence, including adopted information, ignored instructions, and the actual result. Press `D` to view the full diagnosis.
 - **Guard ON/OFF comparison:** For an injection scenario, run two independent inferences with the same image and request; matching or failed results are shown as they are. A clean scenario runs only the guarded analysis.
 - **Offline-ready Mock mode:** Reproduce the interface and flow from fixed scenarios in the repository without a GPU or model API key. Real inference failures do not automatically fall back to Mock.
@@ -28,7 +28,8 @@ flowchart TD
     F -->|REST: frozen image and request| B[Demo FastAPI backend]
     B -->|SSE: stages, sources, and results| F
     B <--> R[In-memory RunStore, no database]
-    B -->|Real mode: local HTTP| P[Prototype runtime]
+    B -->|Real mode: local HTTP| N[NVIDIA model gateway]
+    N -->|Selected model, one worker at a time| P[Prototype runtime]
     B -->|Mock mode| M[Local JSON scenarios]
     P --> T[Local VLM: parse user task only]
     T --> V[Local VLM: observe image and transcribe text]
@@ -40,7 +41,7 @@ flowchart TD
     H[Hugging Face model hub] -.download weights initially.-> P
 ```
 
-The frontend handles input and presentation. The demo backend manages requests, in-memory state, and SSE. The Prototype uses one configured resident VLM for separate task, observation, and citation conversations, after which the program checks citations and, for proposed actions, authorization conditions. Qwen is the default; Nemotron and Cosmos are experimental alternatives. The Guard OFF comparison uses one raw model proposal. **All calls are currently simulated; no telecom or other external action service is connected.**
+The frontend handles input and presentation. The demo backend manages requests, in-memory state, and SSE. The Prototype uses one configured resident VLM for separate task, observation, and citation conversations, after which the program checks citations and, for proposed actions, authorization conditions. The NVIDIA gateway defaults to Nemotron and lets each visitor select Nemotron or Cosmos for their next analysis. The Guard OFF comparison uses one raw model proposal. **All calls are currently simulated; no telecom or other external action service is connected.**
 
 The system has no database, so in-memory results are cleared after a restart. Hugging Face is used to download the model in advance; real inference runs on a local GPU and does not require a cloud model API. The demo’s [`prototype`](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/49aba429147c26a61ff4c9f5e44042526939b3ad) is a Git submodule pinned to a fixed commit in a separate Prototype repository; the GitHub file list links directly to that version. The two repositories retain independent Git histories and collaborate over HTTP. See the [workspace guide](docs/prototype-workspace.md) for version operations. See [system architecture](docs/architecture.md) and [task and citation constraints](docs/task-boundary.md) for the complete flow.
 
@@ -48,7 +49,7 @@ The system has no database, so in-memory results are cleared after a restart. Hu
 
 | Category | Technology / service | Purpose |
 | --- | --- | --- |
-| AI models | Qwen3-VL-8B-Instruct (default), NVIDIA Nemotron Nano VL 8B, NVIDIA Cosmos Reason1 7B; PyTorch, Transformers | Local scene observations, text transcription, user-task parsing, and citation selection |
+| AI models | NVIDIA Nemotron Nano VL 8B (default), NVIDIA Cosmos Reason1 7B; PyTorch, Transformers | Local scene observations, text transcription, user-task parsing, and citation selection |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS | Four-stage interactive presentation, camera, image upload, and responsive UI |
 | Backend | Python 3.12, FastAPI, Pydantic, HTTPX, SSE | Type validation, Prototype HTTP bridge, state streaming, and simulated actions |
 | Storage | In-memory RunStore, JSON fixtures | Temporary execution results and fixed demo scenarios; no database |
@@ -57,24 +58,21 @@ The system has no database, so in-memory results are cleared after a restart. Hu
 
 ## NVIDIA Local Models
 
-Both providers run locally in BF16 on the tested Linux / RTX 4090 24 GB environment. Select the model when starting the Prototype service; the frontend displays the active model and has no model selector.
+Both providers run locally in BF16 on the tested Linux / RTX 4090 24 GB environment. The English frontend offers only Nemotron and Cosmos in its model selector, with Nemotron selected by default. Both Guard ON and Guard OFF use the same selected model, image, and request. The selector is disabled while analysis is running.
 
-| Model | Runtime `--model` ID | Tested environment |
+| Model | Model profile ID | Tested environment |
 | --- | --- | --- |
 | [nvidia/Llama-3.1-Nemotron-Nano-VL-8B-V1](https://huggingface.co/nvidia/Llama-3.1-Nemotron-Nano-VL-8B-V1) | `nemotron-nano-vl-8b` | Isolated `lensguard-nemotron` environment; Transformers 4.53.3 |
 | [nvidia/Cosmos-Reason1-7B](https://huggingface.co/nvidia/Cosmos-Reason1-7B) | `cosmos-reason1-7b` | Existing `lensguard-vlm` environment; Transformers 5.16.1 |
 
-First complete the [base GPU environment setup](docs/local-model-setup.md#環境), then follow the [NVIDIA setup guide](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/49aba429147c26a61ff4c9f5e44042526939b3ad/docs/nvidia_local_models.md#setup-cache-and-startup) for the isolated Nemotron dependencies and pinned model downloads. Both profiles require at least 21,000 MiB of free VRAM before loading. Run one model service at a time. From the Demo root, choose one command after setup:
+First complete the [base GPU environment setup](docs/local-model-setup.md#環境), then follow the [NVIDIA setup guide](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/49aba429147c26a61ff4c9f5e44042526939b3ad/docs/nvidia_local_models.md#setup-cache-and-startup) for the isolated Nemotron dependencies and pinned model downloads. Both profiles require at least 21,000 MiB of free VRAM before loading. The gateway stops its previous worker before loading a different model and never stops unrelated GPU workloads. From the Demo root, start the gateway after installing the backend dependencies:
 
 ```bash
-cd prototype
-# Nemotron
-~/venvs/lensguard-nemotron/bin/python -m prototype_demo_server --model nemotron-nano-vl-8b --port 8010
-# Or Cosmos, after the other service has exited
-~/venvs/lensguard-vlm/bin/python -m prototype_demo_server --model cosmos-reason1-7b --port 8010
+cd backend
+.venv/bin/python -m model_gateway --port 8010
 ```
 
-Connect the Demo backend with `LENSGUARD_RUNTIME=prototype` and `PROTOTYPE_RUNTIME_URL=http://127.0.0.1:8010`, as shown below. These commands reuse prepared environments and cached weights.
+Connect the Demo backend with `LENSGUARD_RUNTIME=prototype` and `PROTOTYPE_RUNTIME_URL=http://127.0.0.1:8010`, as shown below. The gateway reuses prepared environments and cached weights. See [NVIDIA demo operation](docs/nvidia-demo.md) for environment paths, switching, and health checks.
 
 The NVIDIA semantic contract represents informational questions as open observations with optional attributes, confidence, uncertainty, and evidence links. A direction question selects the direction itself rather than the sign label; new scene concepts do not require a new task enum. Uncertain or missing observations can produce an informational inability report without an action decision; malformed model output remains an error. Reading a phone number produces an answer. Requesting a call proposes that number to the existing delegation and authorization checks. **No security-policy changes were required:** provenance, grounding, delegation, Thin Gate, camera authority, and environmental-instruction authority remain unchanged.
 
@@ -124,7 +122,7 @@ HTTPS_ENABLED=false docker compose -f docker-compose.yml up --build
 # docker compose -f docker-compose.yml down
 ```
 
-**Real local inference:** Linux, a compatible NVIDIA driver, and sufficient GPU memory are required; the verified environment is an RTX 4090 with 24 GB. Initial loading requires at least 21,000 MiB of available VRAM. Follow [Qwen setup](docs/local-model-setup.md) for the default model or [NVIDIA setup above](#nvidia-local-models) for Nemotron/Cosmos, then switch the backend to:
+**Real local inference:** Linux, a compatible NVIDIA driver, and sufficient GPU memory are required; the verified environment is an RTX 4090 with 24 GB. Initial loading requires at least 21,000 MiB of available VRAM. Follow [NVIDIA setup above](#nvidia-local-models), start the gateway, then switch the backend to:
 
 ```bash
 cd backend
@@ -175,11 +173,11 @@ The screenshots below show the “Observe, Distinguish, Decide” stages in orde
 
 ## Third-Party Services, Data, and Assets
 
-The following covers local/cloud models actually used by the current Demo and Prototype research. The real Demo defaults to local Qwen3-VL 8B and can run either NVIDIA model listed above. See the [complete third-party list](docs/third-party.md#使用過的模型與雲端-api) for the purpose, experiment records, and SDK sources for other models.
+The following covers local/cloud models actually used by the current Demo and Prototype research. The real web Demo offers only NVIDIA Nemotron (default) and Cosmos. Qwen and the other models below remain part of the research history. See the [complete third-party list](docs/third-party.md#使用過的模型與雲端-api) for the purpose, experiment records, and SDK sources for other models.
 
 | Item | Source and link | License and scope of use |
 | --- | --- | --- |
-| Local: Qwen3-VL-8B-Instruct | [Qwen/Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | Apache-2.0; current Demo inference and local research baseline; weights downloaded separately |
+| Local: Qwen3-VL-8B-Instruct | [Qwen/Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | Apache-2.0; previous Demo inference and local research baseline; weights downloaded separately |
 | Local: NVIDIA Nemotron Nano VL 8B | [nvidia/Llama-3.1-Nemotron-Nano-VL-8B-V1](https://huggingface.co/nvidia/Llama-3.1-Nemotron-Nano-VL-8B-V1) | [NVIDIA model terms](https://huggingface.co/nvidia/Llama-3.1-Nemotron-Nano-VL-8B-V1#licenseterms-of-use), including the linked Llama 3.1 information; experimental local Demo provider; weights downloaded separately |
 | Local: NVIDIA Cosmos Reason1 7B | [nvidia/Cosmos-Reason1-7B](https://huggingface.co/nvidia/Cosmos-Reason1-7B) | [NVIDIA model terms](https://huggingface.co/nvidia/Cosmos-Reason1-7B#license); experimental local Demo provider; weights downloaded separately |
 | Local: Gemma 3 4B IT | [google/gemma-3-4b-it](https://huggingface.co/google/gemma-3-4b-it) | [Gemma Terms of Use](https://ai.google.dev/gemma/terms); local research baseline and early Demo integration; model terms must be accepted for download |

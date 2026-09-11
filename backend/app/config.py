@@ -13,7 +13,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 class Settings(BaseModel):
     runtime: Literal["mock", "prototype"] = "mock"
     prototype_runtime_url: str = "http://127.0.0.1:8010"
-    inference_timeout_seconds: float = Field(default=180, gt=0, le=900)
+    inference_timeout_seconds: float = Field(default=300, gt=0, le=900)
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     mock_stage_delay_ms: int = Field(default=250, ge=0, le=5000)
     max_runs: int = Field(default=128, ge=1, le=10000)

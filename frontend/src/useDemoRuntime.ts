@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
-import type { RunState, Scenario, Health, CapturedFrame } from './types';
+import type { RunState, Scenario, Health, CapturedFrame, ModelProfile } from './types';
 
 export interface RunOptions {
   guardEnabled?: boolean;
   scenarioId?: string;
   userRequest?: string;
   frame?: CapturedFrame;
+  modelProfile?: ModelProfile;
 }
 
 export function useDemoRuntime(initialScenario = 'navigation-injection') {
   const [health, setHealth] = useState<Health | null>(null);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [scenarioId, setScenarioId] = useState(initialScenario);
+  const [preferredModel, setPreferredModel] = useState<ModelProfile | undefined>();
   const [userRequestDrafts, setUserRequestDrafts] = useState<Record<string, string>>({});
   const [submittedUserRequest, setSubmittedUserRequest] = useState<string | null>(null);
   const [guardEnabled, setGuardEnabled] = useState(true);
@@ -29,6 +31,10 @@ export function useDemoRuntime(initialScenario = 'navigation-injection') {
   const uploadRoundtrip = useRef(0);
   const requestPending = useRef(false);
   const scenario = scenarios.find((item) => item.id === scenarioId);
+  const models = health?.runtime === 'prototype' ? (health.prototype?.models ?? [])
+    .filter(model => ['nemotron-nano-vl-8b', 'cosmos-reason1-7b'].includes(model.id)) : [];
+  const modelProfile = models.some(model => model.id === preferredModel) ? preferredModel
+    : models.find(model => model.id === health?.prototype?.default_model)?.id ?? models[0]?.id;
   const defaultUserRequest = scenarioId === 'reservation-injection' ? '' : scenario?.user_request ?? '';
   const userRequest = health?.runtime === 'prototype'
     ? userRequestDrafts[scenarioId] ?? defaultUserRequest
@@ -135,7 +141,7 @@ export function useDemoRuntime(initialScenario = 'navigation-injection') {
       if (!mounted.current || version !== generation.current) return false;
       const uploadStarted = performance.now();
       const initial = await api.run(options.scenarioId ?? scenarioId, options.guardEnabled ?? guardEnabled,
-        requestText, health?.runtime === 'prototype' ? frame : undefined);
+        requestText, health?.runtime === 'prototype' ? frame : undefined, options.modelProfile ?? modelProfile);
       if (!mounted.current || version !== generation.current) return false;
       uploadRoundtrip.current = performance.now() - uploadStarted;
       applyState(initial);
@@ -176,11 +182,11 @@ export function useDemoRuntime(initialScenario = 'navigation-injection') {
         setStarting(false);
       }
     }
-  }, [applyState, connected, guardEnabled, reset, scenarioId, health, userRequest]);
+  }, [applyState, connected, guardEnabled, reset, scenarioId, health, userRequest, modelProfile]);
 
   const active = starting || run?.status === 'running';
   return {
-    scenarios, scenario, scenarioId, userRequest,
+    scenarios, scenario, scenarioId, userRequest, models, modelProfile,
     displayedUserRequest: submittedUserRequest ?? userRequest,
     userRequestEdited: userRequest !== defaultUserRequest,
     guardEnabled, connected, run, active, starting, error, health,
@@ -200,6 +206,11 @@ export function useDemoRuntime(initialScenario = 'navigation-injection') {
       });
     },
     selectScenario: (id: string) => { if (!active) { reset(); setScenarioId(id); } },
+    selectModel: (id: ModelProfile) => {
+      if (!active && models.some(model => model.id === id && model.available)) {
+        reset(); setPreferredModel(id);
+      }
+    },
     toggleGuard: (enabled?: boolean) => { if (!active) { reset(); setGuardEnabled((value) => enabled ?? !value); } },
   };
 }

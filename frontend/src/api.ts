@@ -1,4 +1,4 @@
-import type { Health, RunState, Scenario, CapturedFrame } from './types';
+import type { Health, RunState, Scenario, CapturedFrame, ModelProfile } from './types';
 
 const configuredBase = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 // An old HTTP override must not cause mixed content after HTTPS is enabled.
@@ -42,7 +42,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<Health>('/health'),
   scenarios: () => request<Scenario[]>('/scenarios'),
-  run: (scenarioId: string, guardEnabled: boolean, userRequest?: string, frame?: CapturedFrame) => {
+  run: (scenarioId: string, guardEnabled: boolean, userRequest?: string, frame?: CapturedFrame, modelProfile?: ModelProfile) => {
     if (frame) {
       const body = new FormData();
       body.append('image', frame.blob, 'frame.jpg');
@@ -51,6 +51,7 @@ export const api = {
       body.append('user_request', userRequest || '');
       body.append('source', frame.source);
       body.append('capture_ms', String(frame.captureMs));
+      if (modelProfile) body.append('model_profile', modelProfile);
       return request<RunState>('/run', { method: 'POST', body });
     }
     return request<RunState>('/run', {

@@ -32,7 +32,7 @@ git submodule update --init --recursive
 git -C prototype rev-parse HEAD
 ```
 
-目前固定於 [`eb2b0130c05bce18d6da4657efb81c923cfc1004`](https://github.com/tyc4d/FM26-LensGuard-Prototype/commit/eb2b0130c05bce18d6da4657efb81c923cfc1004)，
+目前固定於 [`49aba429147c26a61ff4c9f5e44042526939b3ad`](https://github.com/tyc4d/FM26-LensGuard-Prototype/commit/49aba429147c26a61ff4c9f5e44042526939b3ad)，
 驗證結果見 [測試紀錄](testing.md)。submodule checkout 預設為 detached HEAD，
 適合重現該版本；開發前需先切換或建立分支。Mock 模式可省略 submodule 下載。
 
@@ -73,6 +73,8 @@ Demo backend 透過 `PROTOTYPE_RUNTIME_URL` 呼叫獨立 HTTP 服務。
 `prototype`，模型在主機執行。
 
 `scripts/lensguard-prototype.service` 的工作目錄使用
-`%h/FM26-LensGuard-Demo/prototype`。模型環境仍是
-`%h/venvs/lensguard-vlm`。非此目錄配置請調整 unit 後再安裝；修改檔案不會
-自動重啟模型服務。完整操作見 [維運指南](development.md#docker-and-real-mode)。
+`%h/FM26-LensGuard-Demo/backend`，以 `backend/.venv/bin/python` 啟動 NVIDIA gateway。
+Gateway 在 `%h/FM26-LensGuard-Demo/prototype` 啟動獨立 worker；Nemotron 使用
+`%h/venvs/lensguard-nemotron`，Cosmos 使用 `%h/venvs/lensguard-vlm`。
+非此目錄配置請依 [NVIDIA 操作說明](nvidia-demo.md)設定環境路徑；修改 unit 後需要
+`systemctl --user daemon-reload`，並在無分析進行時重新啟動服務。完整操作見 [維運指南](development.md#docker-and-real-mode)。
