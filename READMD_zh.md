@@ -43,7 +43,7 @@ flowchart TD
 
 前端負責輸入與展示，Demo 後端管理請求、記憶體狀態與 SSE。Prototype 使用設定的單一常駐 VLM，分別進行任務解析、場景觀察與引用選取，再由程式檢查引用，並對提議的行動檢查授權。NVIDIA gateway 預設使用 Nemotron，訪客可在網頁選擇 Nemotron 或 Cosmos，於下一次分析時生效。Guard OFF 比較則使用一次原始模型提議。**目前所有撥號都只模擬，沒有串接電信或其他外部行動服務。**
 
-系統沒有資料庫，重啟後記憶體結果會清除。Hugging Face 用於預先下載模型；真實推論在本機 GPU 執行，不需要雲端模型 API。Demo 的 [`prototype`](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/49aba429147c26a61ff4c9f5e44042526939b3ad) 是 Git submodule，連到獨立 Prototype repo 的固定 commit；GitHub 檔案列表可直接點入該版本。兩邊保留獨立 Git 歷史並透過 HTTP 協作，版本操作見 [workspace 說明](docs/prototype-workspace.md)。完整流程見 [系統架構](docs/architecture.md)及[任務與引用約束](docs/task-boundary.md)。
+系統沒有資料庫，重啟後記憶體結果會清除。Hugging Face 用於預先下載模型；真實推論在本機 GPU 執行，不需要雲端模型 API。Demo 的 [`prototype`](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/991f46a62cc2ed917fe466f23197fc4ab915d5b1) 是 Git submodule，連到獨立 Prototype repo 的固定 commit；GitHub 檔案列表可直接點入該版本。兩邊保留獨立 Git 歷史並透過 HTTP 協作，版本操作見 [workspace 說明](docs/prototype-workspace.md)。完整流程見 [系統架構](docs/architecture.md)及[任務與引用約束](docs/task-boundary.md)。
 
 ## 使用技術
 
@@ -65,7 +65,7 @@ flowchart TD
 | [nvidia/Llama-3.1-Nemotron-Nano-VL-8B-V1](https://huggingface.co/nvidia/Llama-3.1-Nemotron-Nano-VL-8B-V1) | `nemotron-nano-vl-8b` | 獨立 `lensguard-nemotron` 環境；Transformers 4.53.3 |
 | [nvidia/Cosmos-Reason1-7B](https://huggingface.co/nvidia/Cosmos-Reason1-7B) | `cosmos-reason1-7b` | 既有 `lensguard-vlm` 環境；Transformers 5.16.1 |
 
-先完成 [基礎 GPU 環境安裝](docs/local-model-setup.md#環境)，再依 [NVIDIA 安裝指南](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/49aba429147c26a61ff4c9f5e44042526939b3ad/docs/nvidia_local_models.md#setup-cache-and-startup)建立 Nemotron 的獨立依賴環境並下載固定版本模型。兩個設定都要求載入前至少有 21,000 MiB 可用 VRAM；gateway 會先結束自己啟動的舊 worker，再載入另一個模型，不會終止其他 GPU 工作。安裝好後端依賴後，從 Demo 根目錄啟動 gateway：
+先完成 [基礎 GPU 環境安裝](docs/local-model-setup.md#環境)，再依 [NVIDIA 安裝指南](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/991f46a62cc2ed917fe466f23197fc4ab915d5b1/docs/nvidia_local_models.md#setup-cache-and-startup)建立 Nemotron 的獨立依賴環境並下載固定版本模型。兩個設定都要求載入前至少有 21,000 MiB 可用 VRAM；gateway 會先結束自己啟動的舊 worker，再載入另一個模型，不會終止其他 GPU 工作。安裝好後端依賴後，從 Demo 根目錄啟動 gateway：
 
 ```bash
 cd backend
@@ -76,7 +76,7 @@ cd backend
 
 NVIDIA 語意契約以開放式觀察表示資訊問題，可包含選用屬性、信心度、不確定性與證據連結。詢問方向時選取方向本身，不會把招牌名稱當成方向；新場景概念不需要新增任務列舉值。觀察不確定或證據不足時，可回報無法可靠回答，不產生行動決策；格式錯誤的模型輸出仍會回報錯誤。讀取電話只產生資訊回答，要求撥號才將號碼送入既有委派與授權檢查。**不需要修改任何安全政策：** provenance、grounding、delegation、Thin Gate、相機權限與環境指令權威均維持不變。
 
-2026-09-07 的 GPU smoke 測試中，兩個模型皆通過乾淨／注入導航、電話資訊查詢、委派撥號與混合電話情境；注入電話的綁定仍被阻擋。這些測試使用英文需求，尚未評估中文準確度。額外的非文字顏色情境在兩個模型上都失敗。樓梯、模糊朝向與門的開關狀態使用的是預先提供觀察的契約測試，不代表已驗證真實模型感知。各層感知、解析、語意綁定、不確定性、grounding、授權與端到端結果，見 [分層結果與剩餘限制](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/49aba429147c26a61ff4c9f5e44042526939b3ad/docs/nvidia_semantic_contract.md)。
+2026-09-07 的 GPU smoke 測試中，兩個模型皆通過乾淨／注入導航、電話資訊查詢、委派撥號與混合電話情境；注入電話的綁定仍被阻擋。這些測試使用英文需求，尚未評估中文準確度。額外的非文字顏色情境在兩個模型上都失敗。樓梯、模糊朝向與門的開關狀態使用的是預先提供觀察的契約測試，不代表已驗證真實模型感知。各層感知、解析、語意綁定、不確定性、grounding、授權與端到端結果，見 [分層結果與剩餘限制](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/991f46a62cc2ed917fe466f23197fc4ab915d5b1/docs/nvidia_semantic_contract.md)。
 
 ## 安裝與執行
 
@@ -186,7 +186,7 @@ npm --prefix frontend run build
 | Cloud：Google `gemini-3.1-flash-lite` | [官方模型頁](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite) | [Gemini API 條款](https://ai.google.dev/gemini-api/terms)；早期 Prototype 與雲端研究比較，透過 Gemini API 呼叫 |
 | 模型執行套件 | [PyTorch](https://github.com/pytorch/pytorch/blob/main/LICENSE)、[Transformers](https://github.com/huggingface/transformers/blob/main/LICENSE)、[Accelerate](https://github.com/huggingface/accelerate/blob/main/LICENSE) | 分別依 PyTorch BSD-style 條款、Apache-2.0、Apache-2.0；完整來源見下方清單 |
 | 前後端與開發工具 | [第三方套件清單](docs/third-party.md) | 逐項列出 MIT、BSD、Apache 等上游授權；依賴仍適用各自條款 |
-| Prototype 原始碼 | [LensGuard Prototype](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/49aba429147c26a61ff4c9f5e44042526939b3ad) | MIT；保留獨立 repo，由 Git submodule 連結並固定 commit |
+| Prototype 原始碼 | [LensGuard Prototype](https://github.com/tyc4d/FM26-LensGuard-Prototype/tree/991f46a62cc2ed917fe466f23197fc4ab915d5b1) | MIT；保留獨立 repo，由 Git submodule 連結並固定 commit |
 | 示範情境、圖形與圖示 | [情境 JSON](mock-data/scenarios.json)、[前端原始碼](frontend/src)、[favicon](frontend/public/favicon.svg) | 本專案內建合成範例與程式繪製素材，隨原始碼採 MIT；範例值不用於真實聯絡 |
 | 相機／上傳圖片 | 由展示者自行提供 | 權利仍屬原權利人；不隨 repo 授權。請使用可公開或自行製作的示範素材 |
 | 實體研究照片與衍生紀錄 | [資料處理說明](https://github.com/tyc4d/FM26-LensGuard-Prototype/blob/phase3-direct-physical-pilot-v1/docs/physical_reviewed_evaluation.md) | 未取得公開散布授權的資料與含聯絡資訊的本次衍生紀錄保留本機，不納入繳交 |

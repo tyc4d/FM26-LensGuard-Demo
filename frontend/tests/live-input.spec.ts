@@ -80,6 +80,7 @@ test('parse failures end with a retry and retain raw details, never a fabricated
   await prepareLive(page);
   await page.getByRole('button', { name: 'Start analysis' }).click();
   await expect(page.getByRole('heading', { name: 'Try again' })).toBeVisible();
+  await expect(page.locator('.result-caption')).toHaveText('Parse failed.');
   await expect(page.locator('.result-check, .semantic-piece')).toHaveCount(0);
   await page.keyboard.press('d');
   await page.getByText('View technical details', { exact: true }).click();

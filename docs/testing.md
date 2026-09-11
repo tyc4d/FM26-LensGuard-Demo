@@ -1,3 +1,11 @@
+# Nemotron evidence-selection failure diagnosis — 2026-09-11
+
+- The two latest user runs reached NVIDIA inference successfully, then failed the evidence-selection schema. JSON syntax was valid, but `other_target_ids.0` was an object instead of a string ID. The old Demo presented this as a generic parse failure and hid its stage behind “Try again.”
+- Prototype `991f46a`: the NVIDIA prompt now explicitly describes string IDs and ends with the applicable non-phone/direction response rules. The parser remains strict and adds structured `{path, type}` schema errors. Demo maps stage schema failures to `model_schema_invalid`, keeps syntax failures distinct, and shows the public cause in the result panel. Raw output, policy behavior, and the NVIDIA-only selector remain intact.
+- A controlled real Nemotron test with the same saved model observations reproduced the original schema failure, then returned a schema-valid selection with the revised prompt. The direction still conflicted with its citation (`LEFT` against `EXIT ↓`), so the existing gate returned `VALUE_MISMATCH`. This is a remaining model inconsistency; no opposite direction was substituted. The original image is not retained, so its perception accuracy was not rechecked.
+- **140 Demo backend, 280 relevant Prototype, and 68 frontend tests passed**. Tests cover stage/schema/syntax diagnostics, raw-output preservation, rejection of malformed IDs and contradictory directions, and the full error explanation with an unlocked model selector at 320/1280 pixels. Docker/TypeScript/Vite builds passed.
+- The deployed HTTPS UI displayed the saved failure through the updated bridge with no page errors. The managed model service was restarted with the revised prompt; a fresh synthetic `EXIT → RIGHT` request completed with a cited `right` answer. Model environments and weights were reused.
+
 # NVIDIA model selection and English demo — 2026-09-11
 
 - The English web demo offers only Nemotron Nano VL 8B (default) and Cosmos Reason1 7B. A page keeps its own selection; Guard ON/OFF share a frozen model, image, and request. The selector is locked during comparison, and both backend and frontend reject a response from another model.

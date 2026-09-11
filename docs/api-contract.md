@@ -42,6 +42,8 @@ The Prototype performs a separate scene-perception pass and deterministic semant
 
 ## Model schema failures
 
+Guarded task, perception, and selection stages expose separate `parse_success` and `schema_valid` diagnostics. Valid JSON with invalid field types (for example objects in `other_target_ids`, which requires string IDs) produces `model_schema_invalid`; malformed JSON retains `model_output_parse_failed`. The public error identifies the failing stage in English. The result screen displays that error and allows choosing another model or retrying. Raw text and diagnostics stay unchanged; no invalid output becomes an action. Prototype schema diagnostics also include `schema_errors: [{path, type}]` without copying input values into those entries.
+
 JSON syntax success is separate from action-schema validity. Prototype may return `parsed=false` with a decoded `candidate_action` and parser `diagnostics` (for example a reservation with `party_size: "N/A"`). The candidate is display-only: Demo keeps its values and marks `action.validation_status=invalid`; it never coerces missing/invalid values or executes the candidate, even with Guard OFF. Policy is explicitly not evaluated.
 
 Valid outputs support both `tool/arguments` and Prototype `action/arguments` (including native_action). RESTAURANT_RESERVATION maps to restaurant_reservation, target_number to number; all other arguments are retained. Malformed mappings, alias conflicts and invalid schemas terminate with one runtime.failed SSE snapshot, status=failed and a specific error_code. UI shows invalid output / no valid action rather than waiting. Raw text and upstream diagnostics are retained.

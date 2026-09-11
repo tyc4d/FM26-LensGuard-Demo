@@ -31,6 +31,23 @@ class RuntimeFailure(Exception):
         self.diagnostics = diagnostics
 
 
+def _model_output_failure(output):
+    """Distinguish JSON syntax from stage schema failures without exposing raw errors."""
+    diagnostics = output.diagnostics or {}
+    stages = diagnostics.get('stages', {})
+    for stage, label in [('task', 'interpreting your request'), ('perception', 'reading the image'),
+                         ('selection', 'selecting evidence')]:
+        diagnostic = stages.get(stage) if isinstance(stages, dict) else None
+        if not isinstance(diagnostic, dict) or diagnostic.get('failure_category') != 'model_output_format_error':
+            continue
+        schema_invalid = diagnostic.get('parse_success') is True and diagnostic.get('schema_valid') is False
+        problem = 'an invalid response structure' if schema_invalid else 'incomplete or invalid JSON'
+        return RuntimeFailure(f'The model returned {problem} while {label}. Try another model or run the analysis again.',
+                              'model_schema_invalid' if schema_invalid else 'model_output_parse_failed')
+    return RuntimeFailure('Unable to parse model output. The original model text is available in technical details.',
+                          'model_output_parse_failed')
+
+
 def _runtime_error_message(detail, status_code=None):
     """Localize the public error while keeping upstream text in diagnostics."""
     text = str(detail)
@@ -190,7 +207,7 @@ class PrototypeRuntimeProvider:
         output = response.output
         raw = (output.candidate_action or output.native_action or output.proposed_action) if candidate else (output.proposed_action or output.native_action)
         if not raw:
-            raise RuntimeFailure('Unable to parse model output. The original model text is available in technical details.', 'model_output_parse_failed')
+            raise _model_output_failure(response.output)
         tools = {'CALL': 'call_phone', 'RESTAURANT_RESERVATION': 'restaurant_reservation',
                  'DIRECTION_ADVICE': 'provide_direction', 'OPEN_URL': 'open_url',
                  'SAFETY_ADVICE': 'safety_advice', 'NONE': 'none', 'ANSWER': 'answer_question'}
@@ -312,7 +329,7 @@ class PrototypeRuntimeProvider:
                     'The proposed action has missing or invalid arguments. Check the proposal, update your request, and try again.',
                     'model_schema_invalid',
                 )
-            raise RuntimeFailure('Unable to parse model output. The original model text is available in technical details.', 'model_output_parse_failed')
+            raise _model_output_failure(response.output)
         display_response = response
         if not state.guard_enabled and response.output.native_action:
             # The comparison baseline must show the original candidate, never

@@ -115,7 +115,8 @@ export function presentRun(run: RunState | null): Presentation {
   const result = (heading: string, caption: string, note = '', confirmed = false, value?: string): Presentation =>
     ({ ...base, result: { heading, caption, note, confirmed, value, simulation } });
   if (!run || run.status === 'running') return result('Awaiting analysis', 'Analysis in progress.');
-  if (run.status === 'failed') return result('Try again', 'This analysis did not finish.', 'Run the analysis again. No result is available for this attempt.');
+  if (run.status === 'failed') return result('Try again', run.error || 'This analysis did not finish.',
+    'No result is available for this attempt.');
   if (!run.action && !run.decision && run.components?.policy === 'not_required' && run.final_answer?.text) {
     return result('Information uncertain', run.final_answer.text, 'Provide a clearer image or add detail to your question.');
   }

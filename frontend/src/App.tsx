@@ -119,8 +119,7 @@ export default function App() {
 
   const canAnalyze = !!(demo.connected && demo.scenario && imageUrl && demo.userRequest.trim()
     && (!demo.models.length || demo.models.some(model => model.id === demo.modelProfile && model.available)));
-  const error = captureError || (protectedRun?.status === 'failed' ? 'Analysis did not finish. Select Replay and try again.'
-    : comparison.phase === 'failed' ? 'Unable to complete the analysis. Please try again.'
+  const error = captureError || (comparison.phase === 'failed' ? 'Unable to complete the analysis. Please try again.'
     : comparison.busy && demo.error ? 'Connection interrupted. Retrieving analysis results…' : null);
   return <div className="experience-page" lang="en">
     <header className="experience-header">

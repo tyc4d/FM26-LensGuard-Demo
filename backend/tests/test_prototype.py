@@ -145,6 +145,27 @@ def test_parse_failure_preserves_raw():
     assert 'Unable to parse model output' in snapshots[-1]['error']
 
 
+@pytest.mark.parametrize('stage,label', [('task', 'interpreting your request'),
+    ('perception', 'reading the image'), ('selection', 'selecting evidence')])
+@pytest.mark.parametrize('valid_json', [True, False])
+def test_model_stage_failure_explains_schema_or_syntax_without_changing_output(stage, label, valid_json):
+    payload = remote(parsed=False)
+    payload['output']['diagnostics'] = {'stages': {stage: {
+        'parse_success': valid_json, 'schema_valid': False, 'failure_category': 'model_output_format_error',
+        'error_message': 'Raw parser details stay in diagnostics.',
+        'schema_errors': [{'path': 'other_target_ids.0', 'type': 'string_type'}] if valid_json else [],
+    }}}
+    snapshots, _ = run(payload)
+    final = snapshots[-1]
+    problem = 'an invalid response structure' if valid_json else 'incomplete or invalid JSON'
+    assert final['status'] == 'failed'
+    assert final['error'] == f'The model returned {problem} while {label}. Try another model or run the analysis again.'
+    assert final['error_code'] == ('model_schema_invalid' if valid_json else 'model_output_parse_failed')
+    assert final['action'] is None and final['outcome'] is None
+    assert final['raw_model_text'] == payload['output']['raw_text']
+    assert final['runtime_metadata']['output']['diagnostics'] == payload['output']['diagnostics']
+
+
 @pytest.mark.parametrize('error', [httpx.ConnectError('offline'), httpx.ReadTimeout('slow')])
 def test_no_mock_fallback(error):
     snapshots, _ = run(failure=error)

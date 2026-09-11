@@ -120,6 +120,31 @@ test('an unavailable model disables analysis by button and keyboard; disconnecti
 });
 
 for (const width of [320, 1280]) {
+  test(`model schema failure explains the cause and permits another model at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 720 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const message = 'The model returned an invalid response structure while selecting evidence. Try another model or run the analysis again.';
+    const result = { ...await backendRun(request), model_profile: NEMOTRON, runtime: 'prototype',
+      status: 'failed', error: message, error_code: 'model_schema_invalid', action: null, outcome: null,
+      decision: null, final_answer: null, regions: [], semantic_regions: [] };
+    await page.route('**/api/health', route => route.fulfill({ json: health }));
+    await page.route('**/api/run', route => route.fulfill({ json: result }));
+    await prepareLive(page);
+    await page.getByRole('button', { name: 'Start analysis', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Try again', exact: true })).toBeVisible();
+    await expect(page.locator('.result-caption')).toHaveText(message);
+    await expect(page.locator('.result-caption')).toBeInViewport({ ratio: 1 });
+    const stage = await page.locator('.central-stage').boundingBox();
+    const note = await page.locator('.result-note').boundingBox();
+    expect(note!.y + note!.height).toBeLessThan(stage!.y + stage!.height);
+    await expect(page.getByRole('button', { name: 'Replay', exact: true })).toBeInViewport({ ratio: 1 });
+    const selector = page.getByRole('combobox', { name: 'Inference model', exact: true });
+    await expect(selector).toBeEnabled();
+    await selector.selectOption(COSMOS);
+    await expect(page.locator('.central-stage')).toHaveAttribute('data-stage', 'input');
+    await expect(page.getByRole('button', { name: 'Start analysis', exact: true })).toBeEnabled();
+  });
+
   test(`NVIDIA model selector fits at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 720 });
     await page.route('**/api/health', route => route.fulfill({ json: health }));

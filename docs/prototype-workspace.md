@@ -32,7 +32,7 @@ git submodule update --init --recursive
 git -C prototype rev-parse HEAD
 ```
 
-目前固定於 [`49aba429147c26a61ff4c9f5e44042526939b3ad`](https://github.com/tyc4d/FM26-LensGuard-Prototype/commit/49aba429147c26a61ff4c9f5e44042526939b3ad)，
+目前固定於 [`991f46a62cc2ed917fe466f23197fc4ab915d5b1`](https://github.com/tyc4d/FM26-LensGuard-Prototype/commit/991f46a62cc2ed917fe466f23197fc4ab915d5b1)，
 驗證結果見 [測試紀錄](testing.md)。submodule checkout 預設為 detached HEAD，
 適合重現該版本；開發前需先切換或建立分支。Mock 模式可省略 submodule 下載。
 
